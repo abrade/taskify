@@ -60,7 +60,12 @@ class Workers(object):
                 "data": _schemas.Worker().dump(worker).data,
             }
 
-    @_view.view_config(route_name="specific_worker", request_method="GET", renderer="json")
+@_view.view_defaults(route_name="specific_worker")
+class Worker(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(request_method="GET", renderer="json")
     def get_one(self):
         worker_id = self.request.matchdict.get("id")
         with _views.dbsession(self.request) as session:
