@@ -18,7 +18,7 @@ _log = _logging.getLogger(__name__)
 
 
 def _start_task(task):
-    params = [task.script.script, task.options]
+    params = [task.script.cmd, task.options]
     task_run = _views.start_task.apply_async(
         tuple(params),
         task_id=str(task.id),
@@ -41,7 +41,8 @@ def _handle_failed_tasks(session_factory):
         for task in tasks:
             diff = _dt.datetime.utcnow() - task.run
             if diff > _dt.timedelta(minutes=5):
-                task_run = _start_task(task)
+                if task.script.is_script():
+                    task_run = _start_task(task)
                 _log.info("Restart failed task %r", task_run.id)
 
 
@@ -56,7 +57,7 @@ def _handle_prerun_tasks(session_factory):
             _models.Task.state == 'PRERUN'
         ).all()
         for task in tasks:
-            if not task.worker.is_online():
+            if not task.worker.is_active():
                 continue
 
             if task.parent is None:
@@ -69,7 +70,8 @@ def _handle_prerun_tasks(session_factory):
                     f"Depends {depends_state}"
                 )
                 if not depends_state:
-                    task_run = _start_task(task)
+                    if task.script.is_script():
+                        task_run = _start_task(task)
                     _log.info("Start Task %r", task_run.id)
             elif task.parent and task.parent.state == "SUCCEED":
                 depends_state = [
@@ -81,7 +83,8 @@ def _handle_prerun_tasks(session_factory):
                     f"Depends {depends_state}"
                 )
                 if not depends_state:
-                    task_run = _start_task(task)
+                    if task.script.is_script():
+                        task_run = _start_task(task)
                     _log.info(
                         f"Start Task {task_run.id} after parent {task.parent.id}"
                     )
@@ -105,5 +108,6 @@ def scheduler(config, waittime):
         _handle_failed_tasks(session_factory)
         _time.sleep(waittime)
 
-def main(argv=_sys.argv):
+
+def main(argv=tuple(_sys.argv)):
     scheduler()

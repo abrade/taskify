@@ -7,6 +7,7 @@ import transaction as _ta
 import subprocess as _subprocess
 
 import celery as _celery
+import celery.result as _result
 import kombu as _kombu
 
 
@@ -27,6 +28,9 @@ if celery_app is None:
     celery_app.conf.task_default_queue = 'default'
     celery_app.conf.task_queues = []
 
+def get_result(task_id):
+    res = _result.AsyncResult(task_id, app=celery_app)
+    return res.get()
 
 @celery_app.task(retry_kwargs={'max_retries': 5})
 def start_task(executable, options):

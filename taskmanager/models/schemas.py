@@ -18,9 +18,10 @@ class Worker(_marshmallow.ModelSchema):
 class Script(_marshmallow.ModelSchema):
     id = _fields.Integer()
     name = _fields.Str()
-    script = _fields.Str()
+    cmd = _fields.Str()
     status = _fields.Str()
     team = _fields.Nested("Team")
+    type = _fields.Str()
 
 class ParentTask(_marshmallow.ModelSchema):
     id = _fields.Integer()
@@ -34,8 +35,8 @@ class ParentTask(_marshmallow.ModelSchema):
 
 class Tasks(_marshmallow.ModelSchema):
     id = _fields.Integer()
-    scheduled = _fields.DateTime()
-    run = _fields.DateTime()
+    scheduled = _fields.DateTime(format="rfc")
+    run = _fields.DateTime(format="rfc")
     state = _fields.Str()
     locks = _fields.Str()
     options = _fields.Dict()

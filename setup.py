@@ -61,6 +61,7 @@ setup(
             'initialize_taskmanager_db = taskmanager.scripts.initializedb:main',
             'state_updater = taskmanager.scripts.state_updater:main',
             'task_scheduler = taskmanager.scripts.task_scheduler:main',
+            'tasky = taskmanager.scripts.cli:main',
         ],
     },
 )

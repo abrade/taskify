@@ -64,10 +64,7 @@ class Scripts(object):
                 "data": None
             }
         with _views.dbsession(self.request) as session:
-            script = _models.Script()
-            script.name = script_name
-            script.script = script_cmd
-            script.team_id = team_id
+            script = _models.Script(script_name, script_cmd, team_id, "ACTIVE")
             session.add(script)
             session.commit()
             session.refresh(script)
@@ -129,7 +126,7 @@ class Script(object):
             if status:
                 script.status = status
             if cmd:
-                script.script = cmd
+                script.cmd = cmd
             if name:
                 script.name = name
             session.commit()

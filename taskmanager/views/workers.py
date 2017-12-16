@@ -32,8 +32,10 @@ class Workers(object):
     @_view.view_config(request_method="POST", renderer="json")
     def post(self):
         #worker_name = self.request.params.get("name")
+        _log.debug("Body: %s", self.request.body)
         try:
             data = self.request.json
+            _log.debug("Data: %s", data)
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": _views.RESULT_ERROR,
@@ -48,9 +50,7 @@ class Workers(object):
                 "data": None,
             }
         with _views.dbsession(self.request) as session:
-            worker = _models.Worker()
-            worker.name = worker_name
-            worker.state = "OFFLINE"
+            worker = _models.Worker(worker_name, "OFFLINE")
             session.add(worker)
             session.commit()
             session.refresh(worker)
@@ -83,6 +83,35 @@ class Worker(object):
                 "data": _schemas.Worker().dump(worker).data,
             }
 
+    @_view.view_config(request_method="PATCH", renderer="json")
+    def update_one(self):
+        worker_id = self.request.matchdict.get("id")
+        try:
+            data = self.request.json
+            _log.debug("Data: %s", data)
+        except _json.decoder.JSONDecodeError as decode_error:
+            return {
+                "result": _views.RESULT_ERROR,
+                "error": decode_error.msg,
+                "data": None,
+            }
+        worker_name = data.get("name")
+        with _views.dbsession(self.request) as session:
+            worker = session.query(
+                _models.Worker
+            ).get(worker_id)
+            if worker is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Worker with id {worker_id} not found",
+                    "data": None,
+                }
+            worker.name = worker_name
+            session.commit()
+            return {
+                "result": _views.RESULT_OK,
+                "data": _schemas.Worker().dump(worker).data,
+            }
 
 def includeme(config):
     config.add_route("all_workers", "/workers")

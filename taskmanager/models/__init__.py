@@ -9,6 +9,7 @@ from taskmanager.models.taskmanager import (
     Team,
     Script,
     Worker,
+    WorkerQueue,
     Task,
     TaskLog,
     TaskDepends,

@@ -45,8 +45,7 @@ class Teams(object):
                 "data": None,
             }
         with _views.dbsession(self.request) as session:
-            team = _models.Team()
-            team.name = team_name
+            team = _models.Team(team_name)
             session.add(team)
             session.commit()
             session.refresh(team)

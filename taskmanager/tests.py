@@ -1,17 +1,23 @@
+import json as _json
 import unittest
 import transaction
 
-from pyramid import testing
+import pyramid.testing as _testing
+
+import sqlalchemy.orm as _orm
+import sqlalchemy.types as _types
+
+import taskmanager.models.taskmanager as _tm
 
 
 def dummy_request(dbsession):
-    return testing.DummyRequest(dbsession=dbsession)
+    return _testing.DummyRequest(dbsession=dbsession)
 
 
 class BaseTest(unittest.TestCase):
     def setUp(self):
-        self.config = testing.setUp(settings={
-            'sqlalchemy.url': 'sqlite:///:memory:'
+        self.config = _testing.setUp(settings={
+            'sqlalchemy.url': 'postgresql://localhost:5432/tm_test'
         })
         self.config.include('.models')
         settings = self.config.get_settings()
@@ -25,7 +31,7 @@ class BaseTest(unittest.TestCase):
         self.engine = get_engine(settings)
         session_factory = get_session_factory(self.engine)
 
-        self.session = get_tm_session(session_factory, transaction.manager)
+        self.session = _orm.scoped_session(session_factory)#get_tm_session(session_factory, transaction.manager)
 
     def init_database(self):
         from .models.meta import Base
@@ -34,32 +40,35 @@ class BaseTest(unittest.TestCase):
     def tearDown(self):
         from .models.meta import Base
 
-        testing.tearDown()
-        transaction.abort()
+        _testing.tearDown()
+#        transaction.abort()
         Base.metadata.drop_all(self.engine)
 
 
-class TestMyViewSuccessCondition(BaseTest):
+class TestWorker(BaseTest):
 
     def setUp(self):
-        super(TestMyViewSuccessCondition, self).setUp()
+        super(TestWorker, self).setUp()
         self.init_database()
 
-        from .models import MyModel
+        from .models import Worker
 
-        model = MyModel(name='one', value=55)
+        from ipdb import set_trace as br; br()
+        model = Worker('one', "OFFLINE")
         self.session.add(model)
+        self.session.commit()
 
     def test_passing_view(self):
-        from .views.default import my_view
-        info = my_view(dummy_request(self.session))
-        self.assertEqual(info['one'].name, 'one')
-        self.assertEqual(info['project'], 'taskmanager')
+        from .views.workers import Workers
+        info = Workers(_testing.DummyRequest()).get()
+        self.assertEqual(info['result'], 'OK')
+        print(info['data'])
+        self.assertEqual(info['data'], 'taskmanager')
 
 
-class TestMyViewFailureCondition(BaseTest):
+# class TestMyViewFailureCondition(BaseTest):
 
-    def test_failing_view(self):
-        from .views.default import my_view
-        info = my_view(dummy_request(self.session))
-        self.assertEqual(info.status_int, 500)
+#     def test_failing_view(self):
+#         from .views.default import my_view
+#         info = my_view(dummy_request(self.session))
+#         self.assertEqual(info.status_int, 500)

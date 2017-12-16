@@ -44,21 +44,33 @@ def state_updater(config):
 
         with _tm.manager:
             dbsession = _models.get_tm_session(session_factory, _tm.manager)
+            worker_queue = dbsession.query(
+                _models.WorkerQueue
+            ).filter(
+                _models.WorkerQueue.name == name
+            ).first()
+
             worker = dbsession.query(
                 _models.Worker
             ).filter(
-                _models.Worker.name == name
+                _models.Worker.name == hostname
             ).first()
+            if not worker_queue:
+                worker_queue = _models.WorkerQueue(name)
+                dbsession.add(worker_queue)
+                _log.info(f"New Queue created {worker_queue.name}")
+            elif worker_queue.state != 'active':
+                _log.info(f"Queue {worker_queue.name}: {worker_queue.state} -> active")
+                worker_queue.state = 'active'
             if not worker:
-                worker = _models.Worker()
-                worker.name = name
+                worker = _models.Worker(hostname, "OFFLINE")
                 dbsession.add(worker)
             if event["type"] in ("worker-heartbeat", "worker-online") and worker.state != "ONLINE":
                 worker.state = "ONLINE"
-                _log.info("Worker %s -> ONLINE", worker.name)
+                _log.info(f"Worker {worker.name} -> ONLINE")
             elif event["type"] in ("worker-offline",) and worker.state != "OFFLINE":
                 worker.state = "OFFLINE"
-                _log.info("Worker %s -> OFFLINE", worker.name)
+                _log.info(f"Worker {worker.name} -> OFFLINE")
 
     def task_events(event):
         state.event(event)
@@ -67,7 +79,7 @@ def state_updater(config):
             try:
                 _ = int(task_id)
             except ValueError:
-                _log.info("ID is not a integer %r", task_id)
+                _log.info(f"ID is not a integer {task_id}")
                 return
             dbsession = _models.get_tm_session(session_factory, _tm.manager)
             task = dbsession.query(_models.Task).get(task_id)
@@ -111,5 +123,5 @@ def state_updater(config):
         recv.capture(limit=None, timeout=None, wakeup=True)
 
 
-def main(argv=_sys.argv):
+def main(argv=tuple(_sys.argv)):
     state_updater()

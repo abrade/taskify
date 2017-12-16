@@ -25,17 +25,17 @@ def get_worker(worker_name, session, use_default_worker=False):
         object: The sql alchemy model if worker is found else None
     """
     result = session.query(
-        _models.Worker
+        _models.WorkerQueue
     ).filter(
-        _models.Worker.name == worker_name
+        _models.WorkerQueue.name == worker_name
     ).first()
 
     if not result and use_default_worker:
         _log.info("Worker not found, use default...")
         result = session.query(
-            _models.Worker
+            _models.WorkerQueue
         ).filter(
-            _models.Worker.name == "default"
+            _models.WorkerQueue.name == "default"
         ).first()
     elif not result:
         _log.info("Worker not found")
@@ -61,6 +61,14 @@ def get_script(script_name, session):
     ).first()
 
 
+def get_scripts(team_id, session):
+    return session.query(
+        _models.Script
+    ).filter(
+        _models.Script.team_id == team_id
+    ).all()
+
+
 def get_states(state_filter):
     lookup = {
         "ALL": None,
@@ -68,6 +76,7 @@ def get_states(state_filter):
     }
 
     return lookup.get(state_filter, [state_filter])
+
 
 @_view.view_defaults(route_name="tasks")
 class Tasks(object):
@@ -107,22 +116,21 @@ class Tasks(object):
                     "error": "Couldn't find script"
                 }
 
-            task = _models.Task()
-            task.script_id = script.id
-            task.worker_id = worker.id
-            task.parent_id = parent_id
-            task.script = script
-            task.worker = worker
-            task.state = "PRERUN"
-            task.options = options
+            task = _models.Task(
+                script.id,
+                worker.id,
+                parent_id,
+                "PRERUN",
+                options,
+            )
             session.add(task)
             session.commit()
             session.refresh(task)
-            # from ipdb import set_trace as br; br()
             for depend in depends:
-                task_depend = _models.TaskDepends()
-                task_depend.task_id = task.id
-                task_depend.depend_id = int(depend)
+                task_depend = _models.TaskDepends(
+                    task.id,
+                    int(depend),
+                )
                 session.add(task_depend)
             session.commit()
 
@@ -137,6 +145,8 @@ class Tasks(object):
         page = int(self.request.params.get("page", 1))
         max_entries = int(self.request.params.get("limit", 40))
         script = self.request.params.get("script")
+        worker = self.request.params.get("worker")
+        team = self.request.params.get("team")
 
         page = page - 1
         state_filter = get_states(state_filter)
@@ -158,6 +168,15 @@ class Tasks(object):
                     tasks = tasks.filter(
                         _models.Task.script_id == script_obj.id
                     )
+            if worker:
+                tasks = tasks.filter(
+                    _models.Task.worker_id == int(worker)
+                )
+            if team:
+                scripts = get_scripts(team, session)
+                tasks = tasks.filter(
+                    _models.Task.script_id.in_(tuple(script.id for script in scripts))
+                )
             tasks = tasks.order_by(
                 _models.Task.id.desc()
             ).offset(
@@ -170,6 +189,7 @@ class Tasks(object):
                 "result": _views.RESULT_OK,
                 "data": _schemas.Tasks(many=True).dump(tasks).data,
             }
+
 
 @_view.view_defaults(route_name="specific_task")
 class Task(object):
@@ -238,6 +258,13 @@ class Task(object):
             task = session.query(
                 _models.Task
             ).get(task_id)
+            if task is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Task with id {task_id} not found",
+                    "data": None,
+                }
+
             task.state = "DELETED"
             session.commit()
 
@@ -246,6 +273,30 @@ class Task(object):
                 "data": _schemas.Task().dump(task).data,
             }
 
+    @_view.view_config(route_name="task_result", request_method="GET", renderer="json")
+    def task_result(self):
+        task_id = self.request.matchdict.get("id")
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Task with id {task_id} not found",
+                    "data": None,
+                }
+            result = _views.get_result(str(task.id))
+            return {
+                "result": _views.RESULT_OK,
+                "data": {
+                    "return_code": result[0],
+                    "stdout": result[1],
+                    "stderr": result[2],
+                }
+            }
+
 def includeme(config):
     config.add_route("tasks", "/tasks")
     config.add_route("specific_task", "/tasks/:id")
+    config.add_route("task_result", "/tasks/:id/result")
