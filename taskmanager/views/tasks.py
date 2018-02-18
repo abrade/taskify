@@ -57,8 +57,8 @@ def get_script(script_name, session):
     return session.query(
         _models.Script
     ).filter(
-        _models.Script.name == script_name
-    ).first()
+        _models.Script.name.in_(script_name)
+    ).all()
 
 
 def get_scripts(team_id, session):
@@ -78,12 +78,12 @@ def get_states(state_filter):
     return lookup.get(state_filter, [state_filter])
 
 
-@_view.view_defaults(route_name="tasks")
+@_view.view_defaults(route_name="tasks", renderer="json")
 class Tasks(object):
     def __init__(self, request):
         self.request = request
 
-    @_view.view_config(request_method="POST", renderer="json")
+    @_view.view_config(request_method="POST")
     def post_task(self):
         try:
             data = self.request.json
@@ -92,15 +92,16 @@ class Tasks(object):
                 "result": "error",
                 "error": decode_error.msg
             }
+        title = data.get("title")
         worker_name = data.get("worker")
-        script_name = data.get("script")
+        script_name = [data.get("script")]
         options = data.get("options", {})
         parent_id = data.get("parent_id")
         depends = data.get("depends", [])
+        use_def_opt = data.get("use_default_opt", False)
 
         _log.debug(f"Depends: {depends}")
         with _views.dbsession(self.request) as session:
-            # _log.info("Task queues : %s ", _views.celery_app.events.state.workers)
             # request.registry.settings.get('use_default_worker', False)
             worker = get_worker(worker_name, session)
             if not worker:
@@ -116,8 +117,14 @@ class Tasks(object):
                     "error": "Couldn't find script"
                 }
 
+            if use_def_opt:
+                # update options with default options
+                def_opt = script.default_options
+                options.update(def_opt)
+
             task = _models.Task(
-                script.id,
+                title,
+                script[0].id,
                 worker.id,
                 parent_id,
                 "PRERUN",
@@ -137,16 +144,18 @@ class Tasks(object):
         return {
             "result": _views.RESULT_OK,
             "id": task.id,
+            **_schemas.Tasks().dump(task).data
         }
 
-    @_view.view_config(request_method="GET", renderer="json")
+    @_view.view_config(request_method="GET")
     def get_tasks(self):
         state_filter = self.request.params.get("state", "ALL")
         page = int(self.request.params.get("page", 1))
         max_entries = int(self.request.params.get("limit", 40))
-        script = self.request.params.get("script")
-        worker = self.request.params.get("worker")
+        script = self.request.params.getall("script")
+        worker = self.request.params.getall("worker")
         team = self.request.params.get("team")
+        include_data = self.request.params.get("include_data")
 
         page = page - 1
         state_filter = get_states(state_filter)
@@ -164,18 +173,21 @@ class Tasks(object):
                 )
             if script:
                 script_obj = get_script(script, session)
+                script_ids = [script.id for script in script_obj]
                 if script_obj:
                     tasks = tasks.filter(
-                        _models.Task.script_id == script_obj.id
+                        _models.Task.script_id.in_(script_ids)
                     )
             if worker:
+                worker = [int(worker_id) for worker_id in worker]
                 tasks = tasks.filter(
-                    _models.Task.worker_id == int(worker)
+                    _models.Task.worker_id.in_(worker)
                 )
             if team:
                 scripts = get_scripts(team, session)
                 tasks = tasks.filter(
-                    _models.Task.script_id.in_(tuple(script.id for script in scripts))
+                    _models.Task.script_id.in_(
+                        tuple(script.id for script in scripts))
                 )
             tasks = tasks.order_by(
                 _models.Task.id.desc()
@@ -184,19 +196,58 @@ class Tasks(object):
             ).limit(
                 max_entries
             ).all()
-
+            additional = {}
+            if include_data:
+                additional["include_data"] = ("script", "worker")
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Tasks(many=True).dump(tasks).data,
+                **_schemas.Tasks(**additional).dump(tasks, many=True).data,
+            }
+
+    @_view.view_config(route_name="tasks_state", request_method="GET")
+    def tasks_state(self):
+        with _views.get_connection(self.request) as connection:
+            stmt = """
+            SELECT
+                state, count(1)
+            FROM
+                tasks
+            GROUP BY
+                state
+            """
+            result = {
+                "SUCCEED": 0,
+                "FAILED": 0,
+                "FAILED-ACKED": 0,
+                "PRERUN": 0,
+                "STARTED": 0,
+                "RETRIED": 0,
+                "ALL": 0,
+            }
+            cur = connection.cursor()
+            cur.execute(stmt)
+            db_result = dict(cur.fetchall())
+            result.update(db_result)
+            all_tasks = sum(db_result.values())
+            result["ALL"] = all_tasks
+            return {
+                "result": _views.RESULT_OK,
+                "data": {
+                    "type": "state",
+                    "attributes": {
+                        **result
+                    },
+                    "id": 1,
+                }
             }
 
 
-@_view.view_defaults(route_name="specific_task")
+@_view.view_defaults(route_name="specific_task", renderer="json")
 class Task(object):
     def __init__(self, request):
         self.request = request
 
-    @_view.view_config(request_method="GET", renderer="json")
+    @_view.view_config(request_method="GET")
     def get_one(self):
         task_id = self.request.matchdict.get("id")
         with _views.dbsession(self.request) as session:
@@ -211,10 +262,10 @@ class Task(object):
                 }
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Tasks().dump(task).data,
+                **_schemas.Tasks().dump(task).data,
             }
 
-    @_view.view_config(request_method="PATCH", renderer="json")
+    @_view.view_config(request_method="PATCH")
     def update_task(self):
         task_id = self.request.matchdict.get("id")
         try:
@@ -248,10 +299,10 @@ class Task(object):
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Task().dump(task).data,
+                **_schemas.Task().dump(task).data,
             }
 
-    @_view.view_config(request_method="DELETE", renderer="json")
+    @_view.view_config(request_method="DELETE")
     def delete_task(self):
         task_id = self.request.matchdict.get("id")
         with _views.dbsession(self.request) as session:
@@ -270,10 +321,10 @@ class Task(object):
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Task().dump(task).data,
+                **_schemas.Task().dump(task).data,
             }
 
-    @_view.view_config(route_name="task_result", request_method="GET", renderer="json")
+    @_view.view_config(route_name="task_result", request_method="GET")
     def task_result(self):
         task_id = self.request.matchdict.get("id")
         with _views.dbsession(self.request) as session:
@@ -296,7 +347,40 @@ class Task(object):
                 }
             }
 
+
+@_view.view_defaults(route_name="specific_task_logs", renderer="json")
+class TaskLogs(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(route_name="task_logs", request_method="GET")
+    def get_task_log(self):
+        task_id = self.request.params.get("task")
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("worker",)
+        with _views.dbsession(self.request) as session:
+            task_logs = session.query(
+                _models.TaskLog
+            ).filter(
+                _models.TaskLog.task_id == task_id
+            ).all()
+            for log in task_logs:
+                print("task_logs: {} {} {}".format(
+                    log.task_id, log.run, log.state))
+            data = _schemas.TaskLog(
+                **additional).dump(task_logs, many=True).data
+            print("Data: {}".format(data))
+            return {
+                "result": _views.RESULT_OK,
+                **data
+            }
+
+
 def includeme(config):
     config.add_route("tasks", "/tasks")
+    config.add_route("tasks_state", "/tasks/state")
     config.add_route("specific_task", "/tasks/:id")
     config.add_route("task_result", "/tasks/:id/result")
+    config.add_route("task_logs", "/tasklogs")

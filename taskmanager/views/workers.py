@@ -12,13 +12,12 @@ import taskmanager.models.schemas as _schemas
 _log = _logging.getLogger(__name__)
 
 
-@_view.view_defaults(route_name="all_workers")
+@_view.view_defaults(route_name="all_workers", renderer="json")
 class Workers(object):
     def __init__(self, request):
         self.request = request
 
-
-    @_view.view_config(request_method="GET", renderer="json")
+    @_view.view_config(request_method="GET")
     def get(self):
         with _views.dbsession(self.request) as session:
             workers = session.query(
@@ -26,12 +25,11 @@ class Workers(object):
             ).all()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Worker(many=True).dump(workers).data,
+                **_schemas.Worker(many=True).dump(workers).data,
             }
 
-    @_view.view_config(request_method="POST", renderer="json")
+    @_view.view_config(request_method="POST")
     def post(self):
-        #worker_name = self.request.params.get("name")
         _log.debug("Body: %s", self.request.body)
         try:
             data = self.request.json
@@ -57,15 +55,16 @@ class Workers(object):
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Worker().dump(worker).data,
+                **_schemas.Worker().dump(worker).data,
             }
 
-@_view.view_defaults(route_name="specific_worker")
+
+@_view.view_defaults(route_name="specific_worker", renderer="json")
 class Worker(object):
     def __init__(self, request):
         self.request = request
 
-    @_view.view_config(request_method="GET", renderer="json")
+    @_view.view_config(request_method="GET")
     def get_one(self):
         worker_id = self.request.matchdict.get("id")
         with _views.dbsession(self.request) as session:
@@ -80,10 +79,10 @@ class Worker(object):
                 }
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Worker().dump(worker).data,
+                **_schemas.Worker().dump(worker).data,
             }
 
-    @_view.view_config(request_method="PATCH", renderer="json")
+    @_view.view_config(request_method="PATCH")
     def update_one(self):
         worker_id = self.request.matchdict.get("id")
         try:
@@ -110,8 +109,9 @@ class Worker(object):
             session.commit()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Worker().dump(worker).data,
+                **_schemas.Worker().dump(worker).data,
             }
+
 
 def includeme(config):
     config.add_route("all_workers", "/workers")

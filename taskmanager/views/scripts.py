@@ -20,6 +20,11 @@ class Scripts(object):
     @_view.view_config(request_method="GET", renderer="json")
     def get_all(self):
         team_id = self.request.params.get("team")
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("team",)
+
         with _views.dbsession(self.request) as session:
             scripts = session.query(
                 _models.Script
@@ -31,7 +36,7 @@ class Scripts(object):
             scripts = scripts.all()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Script(many=True).dump(scripts).data,
+                **_schemas.Script(**additional).dump(scripts, many=True).data
             }
 
     @_view.view_config(request_method="POST", renderer="json")
@@ -43,9 +48,16 @@ class Scripts(object):
                 "result": _views.RESULT_ERROR,
                 "error": decode_error.msg
             }
+
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("team",)
+
         script_name = data.get("name")
         script_cmd = data.get("cmd")
         team_id = data.get("team_id")
+        def_opt = data.get("default_options", {})
         if script_name is None:
             return {
                 "result": _views.RESULT_ERROR,
@@ -64,16 +76,24 @@ class Scripts(object):
                 "error": "No team id is given",
                 "data": None
             }
+
         with _views.dbsession(self.request) as session:
-            script = _models.Script(script_name, script_cmd, team_id, "ACTIVE")
+            script = _models.Script(
+                script_name,
+                script_cmd,
+                team_id,
+                "ACTIVE",
+                default_options=def_opt
+            )
             session.add(script)
             session.commit()
             session.refresh(script)
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Script().dump(script).data
+                **_schemas.Script(**additional).dump(script).data
             }
+
 
 @_view.view_defaults(route_name="specific_script")
 class Script(object):
@@ -83,6 +103,11 @@ class Script(object):
     @_view.view_config(request_method="GET", renderer="json")
     def get_script(self):
         script_id = self.request.matchdict.get("id")
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("team",)
+
         with _views.dbsession(self.request) as session:
             script = session.query(
                 _models.Script
@@ -95,7 +120,7 @@ class Script(object):
                 }
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Script().dump(script).data
+                **_schemas.Script(**additional).dump(script).data,
             }
 
     @_view.view_config(request_method="PATCH", renderer="json")
@@ -132,9 +157,10 @@ class Script(object):
                 script.name = name
             session.commit()
             session.refresh(script)
+
         return {
             "result": _views.RESULT_OK,
-            "data": _schemas.Script().dump(script).data
+            "data": _schemas.Script().dump(script).data["data"],
         }
 
     @_view.view_config(request_method="DELETE", renderer="json")
@@ -155,8 +181,9 @@ class Script(object):
 
         return {
             "result": _views.RESULT_OK,
-            "data": _schemas.Script().dump(script).data
+            "data": _schemas.Script().dump(script).data["data"],
         }
+
 
 def includeme(config):
     config.add_route("all_scripts", "/scripts")

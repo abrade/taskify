@@ -11,12 +11,13 @@ import taskmanager.models.schemas as _schemas
 
 _log = _logging.getLogger(__name__)
 
-@_view.view_defaults(route_name="all_teams")
+
+@_view.view_defaults(route_name="all_teams", renderer="json")
 class Teams(object):
     def __init__(self, request):
         self.request = request
 
-    @_view.view_config(request_method="GET", renderer="json")
+    @_view.view_config(request_method="GET")
     def get_all(self):
         with _views.dbsession(self.request) as session:
             teams = session.query(
@@ -24,10 +25,10 @@ class Teams(object):
             ).all()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Team(many=True).dump(teams).data,
+                **_schemas.Team(many=True).dump(teams).data,
             }
 
-    @_view.view_config(request_method="POST", renderer="json")
+    @_view.view_config(request_method="POST")
     def post_team(self):
         try:
             data = self.request.json
@@ -52,8 +53,9 @@ class Teams(object):
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Team().dump(team).data,
+                **_schemas.Team().dump(team).data
             }
+
 
 @_view.view_defaults(route_name="specific_team", renderer="json")
 class Team(object):
@@ -75,7 +77,7 @@ class Team(object):
                 }
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Team().dump(team).data,
+                **_schemas.Team().dump(team).data,
             }
 
     @_view.view_config(request_method=["PUT", "PATCH"])
@@ -106,7 +108,7 @@ class Team(object):
             session.commit()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.Team().dump(team).data
+                **_schemas.Team().dump(team).data,
             }
 
     @_view.view_config(request_method="DELETE")
@@ -129,6 +131,7 @@ class Team(object):
                 "result": _views.RESULT_OK,
                 "data": None,
             }
+
 
 def includeme(config):
     config.add_route("all_teams", "/teams")

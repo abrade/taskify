@@ -8,8 +8,8 @@ import subprocess as _subprocess
 
 import celery as _celery
 import celery.result as _result
-import kombu as _kombu
 
+import psycopg2 as _psycopg2
 
 import sqlalchemy.orm as _orm
 import celery.utils.log as _logging
@@ -22,25 +22,34 @@ celery_app = None
 
 if celery_app is None:
     cfg_parser = _cp.ConfigParser()
-    cfg_parser.read([_os.path.expanduser('~/.taskmanager.conf'), '/etc/taskmanager.conf'])
+    cfg_parser.read(
+        [
+            _os.path.expanduser('~/.taskmanager.conf'),
+            '/etc/taskmanager.conf'
+        ]
+    )
     celery_config = cfg_parser['celery']
     celery_app = _celery.Celery(**dict(celery_config))
     celery_app.conf.task_default_queue = 'default'
     celery_app.conf.task_queues = []
 
+
 def get_result(task_id):
     res = _result.AsyncResult(task_id, app=celery_app)
     return res.get()
 
+
 @celery_app.task(retry_kwargs={'max_retries': 5})
 def start_task(executable, options):
     current_env = _os.environ.copy()
-    for k,v in options.items():
+    for k, v in options.items():
         if isinstance(v, int):
             options[k] = str(v)
     current_env.update(options)
     current_env["TASK_ID"] = start_task.request.id
-    current_env["PARENT_ID"] = start_task.request.parent_id or ''
+    current_env["PARENT_ID"] = ''
+    if hasattr(start_task.request, "parent_id"):
+        current_env["PARENT_ID"] = start_task.request.parent_id or ''
     print(start_task.request.__dict__)
     print(current_env)
     cmd = executable

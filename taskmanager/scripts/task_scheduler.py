@@ -39,7 +39,10 @@ def _handle_failed_tasks(session_factory):
         ).all()
 
         for task in tasks:
-            diff = _dt.datetime.utcnow() - task.run
+            if task.run:
+                diff = _dt.datetime.utcnow() - task.run
+            else:
+                diff = _dt.timedelta(minutes=1)
             if diff > _dt.timedelta(minutes=5):
                 if task.script.is_script():
                     task_run = _start_task(task)
