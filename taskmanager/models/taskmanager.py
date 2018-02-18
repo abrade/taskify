@@ -29,19 +29,30 @@ class Script(Base):
     team = _orm.relationship('Team', backref='scripts')
     status = _sa.Column(_sa.Text)
     type = _sa.Column(_sa.Text, server_default=SCRIPT_TYPE)
+    default_options = _sa.Column(_sa.JSON())
 
-    def __init__(self, name, cmd, team_id, status, type=SCRIPT_TYPE):
+    def __init__(
+            self,
+            name,
+            cmd,
+            team_id,
+            status,
+            type=SCRIPT_TYPE,
+            default_options=None
+    ):
         self.name = name
         self.cmd = cmd
         self.team_id = team_id
         self.status = status
         self.type = type
+        self.default_options = default_options
 
     def is_script(self):
         return self.type == self.SCRIPT_TYPE
 
     def is_function(self):
         return self.type == self.FUNC_TYPE
+
 
 class Worker(Base):
     """ Worker mapper class"""
@@ -66,12 +77,13 @@ class WorkerQueue(Base):
     name = _sa.Column(_sa.Text, index=True)
     state = _sa.Column(_sa.Text, server_default="active")
 
-    def __init__(self, name, state = "active"):
+    def __init__(self, name, state="active"):
         self.name = name
         self.state = state
 
     def is_active(self):
         return self.state == "active"
+
 
 association_table = _sa.Table(
     'task_dependencies', Base.metadata,
@@ -90,12 +102,14 @@ association_table = _sa.Table(
     _sa.UniqueConstraint('task_id', 'depend_id', name='unique_friendships')
 )
 
+
 class TaskDepends(Base):
     __table__ = association_table
 
     def __init__(self, task_id, depend_id):
         self.task_id = task_id
         self.depend_id = depend_id
+
 
 class Task(Base):
     """ Task mapper class """
@@ -116,10 +130,12 @@ class Task(Base):
         _sa.DateTime,
         server_default=_sa.func.now()
     )
+    title = _sa.Column(_sa.Text)
     run = _sa.Column(_sa.DateTime)
     state = _sa.Column(_sa.Text, index=True)
     locks = _sa.Column(_sa.Text)
     options = _sa.Column(_sa.JSON())
+    scheduled_by = _sa.Column(_sa.Text)
     parent_id = _sa.Column(
         _sa.BigInteger,
         _sa.ForeignKey('tasks.id'),
@@ -140,27 +156,39 @@ class Task(Base):
         secondary=association_table,
         primaryjoin=id == association_table.c.task_id,
         secondaryjoin=id == association_table.c.depend_id,
-#        backref='depending'
+        #        backref='depending'
+    )
+    logs = _orm.relationship(
+        'TaskLog',
+        # backref='logs',
+        back_populates='task',
     )
 
-    def __init__(self, script_id, worker_id, parent_id, state, options):
+    def __init__(self, title, script_id, worker_id, parent_id, state, options):
+        self.title = title
         self.script_id = script_id
         self.worker_id = worker_id
         self.parent_id = parent_id
         self.state = state
         self.options = options
 
+    @property
+    def log_ids(self):
+        return [log.id for log in self.logs]
+
 
 class TaskLog(Base):
     __tablename__ = 'task_log'
+    id = _sa.Column(
+        _sa.BigInteger,
+        primary_key=True,
+    )
     task_id = _sa.Column(
         _sa.BigInteger,
         _sa.ForeignKey('tasks.id'),
-        primary_key=True
     )
     run = _sa.Column(
         _sa.DateTime,
-        primary_key=True,
         server_default=_sa.func.now()
     )
     state = _sa.Column(_sa.Text)
@@ -171,7 +199,8 @@ class TaskLog(Base):
 
     task = _orm.relationship(
         'Task',
-        backref='logs',
+        # backref='logs',
+        back_populates='logs',
     )
     worker = _orm.relationship(
         "Worker",

@@ -11,6 +11,7 @@ import taskmanager.models.schemas as _schemas
 
 _log = _logging.getLogger(__name__)
 
+
 @_view.view_defaults(route_name="all_scripts")
 class Scripts(object):
     def __init__(self, request):

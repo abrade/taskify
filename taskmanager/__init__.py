@@ -11,5 +11,6 @@ def main(global_config, **settings):
     config.include('.views.teams')
     config.include('.views.workers')
     config.include('.views.scripts')
+    config.include('.views.queues')
     config.scan()
     return config.make_wsgi_app()

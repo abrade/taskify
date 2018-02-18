@@ -62,14 +62,25 @@ def start_task(executable, options):
         _log.error("Something happen .... retry... %r", e)
         start_task.retry()
 
+
 @_ct.contextmanager
 def dbsession(request):
     settings = request.registry.settings
     engine = _models.get_engine(settings)
     session_factory = _models.get_session_factory(engine)
-    yield _orm.scoped_session(session_factory)
+    db_session = _orm.scoped_session(session_factory)
+    yield db_session
+    db_session.remove()
+    engine.dispose()
     # with _ta.manager:
     #     yield _models.get_tm_session(session_factory, _ta.manager)
+
+
+@_ct.contextmanager
+def get_connection(request):
+    settings = request.registry.settings
+    yield _psycopg2.connect(settings['sqlalchemy.url'])
+
 
 RESULT_OK = "OK"
 RESULT_ERROR = "ERROR"
