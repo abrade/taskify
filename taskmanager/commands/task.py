@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 import json as _json
+import platform as _platform
 
 import requests as _requests
 import click as _click
@@ -88,7 +89,7 @@ def list(format, team_id, script_id, worker_id, state, limit):
         )
         task["worker"] = _get_remote_data(
             task,
-            "queues",
+            "workerqueues",
             "worker",
             _schema.WorkerQueue
         )
@@ -176,7 +177,8 @@ def add(title, worker, script, option, parent, depend):
         "options": {
             opt[0]: opt[1]
             for opt in option
-        }
+        },
+        "scheduled_by": _platform.node(),
     }
     if parent:
         params["parent_id"] = parent

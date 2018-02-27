@@ -81,7 +81,7 @@ class Tasks(_marshmallow.Schema):
         dump_to="scheduledBy",
     )
     worker = _fields.Relationship(
-        "/queues/{worker_id}",
+        "/workerqueues/{worker_id}",
         include_data=True,
         schema="WorkerQueue",
         related_url_kwargs={"worker_id": "<worker_id>"},
@@ -92,10 +92,21 @@ class Tasks(_marshmallow.Schema):
         allow_none=True,
         default=None
     )
+    # depends = _fields.Relationship(
+    #     "/tasks/{task_id}",
+    #     related_url_kwargs={"task_id": "<depend_ids>"}
+    # )
 
     parent = _fields.Relationship(
         "/tasks/{task_id}",
         related_url_kwargs={"task_id": "<parent_id>"},
+    )
+
+    children = _fields.Relationship(
+        "/tasks/{task_id}/children",
+        many=True,
+        schema="Task",
+        related_url_kwargs={"task_id": "<id>"}
     )
 
     script = _fields.Relationship(
@@ -142,4 +153,15 @@ class TaskLog(_marshmallow.Schema):
 
     class Meta:
         type_ = "tasklog"
+        strict = True
+
+
+class WorkerOptions(_marshmallow.Schema):
+    id = _fields.Integer()
+    concurrency = _fields.Integer()
+    prefetchcount = _fields.Integer()
+    statistics = _fields.Dict()
+
+    class Meta:
+        type_ = "workeroptions"
         strict = True

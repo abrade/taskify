@@ -92,6 +92,7 @@ class Tasks(object):
                 "result": "error",
                 "error": decode_error.msg
             }
+        _log.info("Data: {}".format(data))
         title = data.get("title")
         worker_name = data.get("worker")
         script_name = [data.get("script")]
@@ -99,6 +100,7 @@ class Tasks(object):
         parent_id = data.get("parent_id")
         depends = data.get("depends", [])
         use_def_opt = data.get("use_default_opt", False)
+        scheduled_by = data.get("scheduled_by", "")
 
         _log.debug(f"Depends: {depends}")
         with _views.dbsession(self.request) as session:
@@ -129,10 +131,10 @@ class Tasks(object):
                 parent_id,
                 "PRERUN",
                 options,
+                scheduled_by=scheduled_by,
             )
             session.add(task)
             session.commit()
-            session.refresh(task)
             for depend in depends:
                 task_depend = _models.TaskDepends(
                     task.id,
@@ -141,17 +143,17 @@ class Tasks(object):
                 session.add(task_depend)
             session.commit()
 
-        return {
-            "result": _views.RESULT_OK,
-            "id": task.id,
-            **_schemas.Tasks().dump(task).data
-        }
+            return {
+                "result": _views.RESULT_OK,
+                "id": task.id,
+                **_schemas.Tasks().dump(task).data
+            }
 
     @_view.view_config(request_method="GET")
     def get_tasks(self):
         state_filter = self.request.params.get("state", "ALL")
         page = int(self.request.params.get("page", 1))
-        max_entries = int(self.request.params.get("limit", 40))
+        max_entries = int(self.request.params.get("limit", 20))
         script = self.request.params.getall("script")
         worker = self.request.params.getall("worker")
         team = self.request.params.get("team")
@@ -371,11 +373,40 @@ class TaskLogs(object):
                     log.task_id, log.run, log.state))
             data = _schemas.TaskLog(
                 **additional).dump(task_logs, many=True).data
-            print("Data: {}".format(data))
             return {
                 "result": _views.RESULT_OK,
                 **data
             }
+
+
+@_view.view_defaults(route_name="task_children", renderer="json")
+class TaskChildren(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(request_method="GET")
+    def get_children(self):
+        task_id = self.request.matchdict.get("id")
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("worker", "script")
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Task with id {task_id} not found",
+                    "data": None,
+                }
+            return {
+                "result": _views.RESULT_OK,
+                **_schemas.Tasks().dump(task.children, many=True).data,
+            }
+
+
 
 
 def includeme(config):
@@ -384,3 +415,4 @@ def includeme(config):
     config.add_route("specific_task", "/tasks/:id")
     config.add_route("task_result", "/tasks/:id/result")
     config.add_route("task_logs", "/tasklogs")
+    config.add_route("task_children", "/tasks/:id/children")

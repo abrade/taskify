@@ -20,7 +20,7 @@ def queue():
 @_click.option("--csv", is_flag=True)
 def list(json, csv):
     cfg = get_config()
-    result = _requests.get("{server}/queues".format(**cfg)).json()
+    result = _requests.get("{server}/workerqueues".format(**cfg)).json()
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return

@@ -18,6 +18,10 @@ import taskmanager.models as _models
 
 _log = _logging.get_task_logger(__name__)
 
+RESULT_OK = "OK"
+RESULT_ERROR = "ERROR"
+RESULT_NOTFOUND = "NOT_FOUND"
+
 celery_app = None
 
 if celery_app is None:
@@ -40,7 +44,7 @@ def get_result(task_id):
 
 
 @celery_app.task(retry_kwargs={'max_retries': 5})
-def start_task(executable, options):
+def start_task(executable, options, additional_info=None):
     current_env = _os.environ.copy()
     for k, v in options.items():
         if isinstance(v, int):
@@ -48,10 +52,8 @@ def start_task(executable, options):
     current_env.update(options)
     current_env["TASK_ID"] = start_task.request.id
     current_env["PARENT_ID"] = ''
-    if hasattr(start_task.request, "parent_id"):
-        current_env["PARENT_ID"] = start_task.request.parent_id or ''
-    print(start_task.request.__dict__)
-    print(current_env)
+    if additional_info and "parent_id" in additional_info:
+        current_env["PARENT_ID"] = str(additional_info.get("parent_id", ""))
     cmd = executable
     try:
         task = _subprocess.Popen(
@@ -66,7 +68,11 @@ def start_task(executable, options):
             _log.info("retry...")
             start_task.retry()
         else:
-            return (task.returncode, stdout.decode('utf-8'), stderr.decode('utf-8'))
+            return (
+                task.returncode,
+                stdout.decode('utf-8'),
+                stderr.decode('utf-8'),
+            )
     except Exception as e:
         _log.error("Something happen .... retry... %r", e)
         start_task.retry()
@@ -89,8 +95,3 @@ def dbsession(request):
 def get_connection(request):
     settings = request.registry.settings
     yield _psycopg2.connect(settings['sqlalchemy.url'])
-
-
-RESULT_OK = "OK"
-RESULT_ERROR = "ERROR"
-RESULT_NOTFOUND = "NOT_FOUND"

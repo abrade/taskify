@@ -19,8 +19,12 @@ _log = _logging.getLogger(__name__)
 
 def _start_task(task):
     params = [task.script.cmd, task.options]
+    additional_info = {}
+    if task.parent:
+        additional_info["parent_id"] = task.parent.id
     task_run = _views.start_task.apply_async(
-        tuple(params),
+        args=tuple(params),
+        kwargs={"additional_info": additional_info},
         task_id=str(task.id),
         routing_key=task.worker.name,
         queue=task.worker.name,
@@ -49,6 +53,16 @@ def _handle_failed_tasks(session_factory):
                 _log.info("Restart failed task %r", task_run.id)
 
 
+def _check_parent(task):
+    if task.parent is None:
+        return True
+
+    if task.parent and task.parent.state == "SUCCEED":
+        return True
+
+    return False
+
+
 def _handle_prerun_tasks(session_factory):
     with _tm.manager:
         session = _models.get_tm_session(session_factory, _tm.manager)
@@ -63,34 +77,36 @@ def _handle_prerun_tasks(session_factory):
             if not task.worker.is_active():
                 continue
 
-            if task.parent is None:
+            if _check_parent(task):
                 depends_state = [
                     (depend_task.id, depend_task.state)
                     for depend_task in task.depends
                     if depend_task.state != "SUCCEED"
                 ]
                 _log.info(
-                    f"Depends {depends_state}"
-                )
-                if not depends_state:
-                    if task.script.is_script():
-                        task_run = _start_task(task)
-                    _log.info("Start Task %r", task_run.id)
-            elif task.parent and task.parent.state == "SUCCEED":
-                depends_state = [
-                    (depend_task.id, depend_task.state)
-                    for depend_task in task.depends
-                    if depend_task.state != "SUCCEED"
-                ]
-                _log.info(
-                    f"Depends {depends_state}"
-                )
-                if not depends_state:
-                    if task.script.is_script():
-                        task_run = _start_task(task)
-                    _log.info(
-                        f"Start Task {task_run.id} after parent {task.parent.id}"
+                    "Depends {} - {}".format(
+                        depends_state,
+                        [
+                            (depend_task.id, depend_task.state)
+                            for depend_task in task.depends
+                        ],
                     )
+                )
+                if not depends_state:
+                    if task.script.is_script():
+                        task_run = _start_task(task)
+                    if task.parent:
+                        log_str = "Start Task {} after parent {}".format(
+                            task.id,
+                            task.parent.id,
+                        )
+                        _log.info(log_str)
+                    else:
+                        _log.info(
+                            "Start Task '{}'".format(
+                                task_run.id
+                            )
+                        )
 
 
 @_click.command()
@@ -106,6 +122,7 @@ def scheduler(config, waittime):
 
     engine = _models.get_engine(settings)
     session_factory = _models.get_session_factory(engine)
+    _log.info("Scheduler up and running...")
     while True:
         _handle_prerun_tasks(session_factory)
         _handle_failed_tasks(session_factory)

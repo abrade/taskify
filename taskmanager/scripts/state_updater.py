@@ -1,10 +1,11 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import logging as _logging
 import sys as _sys
 import transaction as _tm
 import datetime as _dt
+import functools as _ft
 
 import click as _click
 
@@ -14,6 +15,119 @@ import taskmanager.models as _models
 import taskmanager.views as _views
 
 _log = _logging.getLogger(__name__)
+
+
+_EVENT_TO_STATE = {
+    "task-started": "STARTED",
+    "task-succeeded": "SUCCEED",
+    "task-failed": "FAILED",
+    # "task-rejected": "REJECT",
+    "task-retried": "RETRIED",
+}
+
+_HOSTNAME_TO_NAME = {}
+
+
+def _worker_events(state, capp, session_factory, event):
+    state.event(event)
+    hostname = event["hostname"]
+    inspect = capp.control.inspect(destination=[hostname])
+    active_queue = inspect.active_queues()
+    if not active_queue:
+        if hostname not in _HOSTNAME_TO_NAME:
+            return
+        name = _HOSTNAME_TO_NAME[hostname]
+    else:
+        active_queue = active_queue[hostname][0]
+        name = active_queue["name"]
+        _HOSTNAME_TO_NAME[hostname] = name
+
+    with _tm.manager:
+        dbsession = _models.get_tm_session(session_factory, _tm.manager)
+        worker_queue = dbsession.query(
+            _models.WorkerQueue
+        ).filter(
+            _models.WorkerQueue.name == name
+        ).first()
+
+        worker = dbsession.query(
+            _models.Worker
+        ).filter(
+            _models.Worker.name == hostname
+        ).first()
+
+        if not worker_queue:
+            worker_queue = _models.WorkerQueue(name)
+            dbsession.add(worker_queue)
+            _log.info(
+                "New Queue created {}".format(
+                    worker_queue.name,
+                )
+            )
+
+        if worker_queue.state != 'active':
+            _log.info(
+                "Queue {}: {} -> active".format(
+                    worker_queue.name,
+                    worker_queue.state,
+                )
+            )
+            worker_queue.state = 'active'
+
+        if not worker:
+            worker = _models.Worker(hostname, "OFFLINE")
+            dbsession.add(worker)
+
+        if event["type"] in ("worker-heartbeat", "worker-online"):
+            if worker.state != "ONLINE":
+                worker.state = "ONLINE"
+                _log.info("Worker {} -> ONLINE".format(worker.name))
+        elif event["type"] in ("worker-offline",):
+            if worker.state != "OFFLINE":
+                worker.state = "OFFLINE"
+                _log.info("Worker {} -> OFFLINE".format(worker.name))
+
+
+def _task_events(state, session_factory, event):
+    state.event(event)
+    task_id = event["uuid"]
+    with _tm.manager:
+        try:
+            int(task_id)
+        except ValueError:
+            _log.info("ID is not a integer {}".format(task_id))
+            return
+        dbsession = _models.get_tm_session(session_factory, _tm.manager)
+        task = dbsession.query(_models.Task).get(task_id)
+        event_type = event["type"]
+        task_state = _EVENT_TO_STATE.get(event_type)
+        if task_state == "STARTED":
+            task.run = _dt.datetime.utcnow()
+
+        _log.info(
+            "Task {} [{:7} -> {}] @ {}".format(
+                task.id,
+                task.state,
+                task_state,
+                event['hostname']
+            )
+        )
+
+        if task_state:
+            task.state = task_state
+
+        worker = dbsession.query(
+            _models.Worker
+        ).filter(
+            _models.Worker.name == event["hostname"]
+        ).one()
+        log_entry = _models.TaskLog()
+        log_entry.task_id = task.id
+        log_entry.run = _dt.datetime.utcnow()
+        log_entry.state = task.state
+        log_entry.task = task
+        log_entry.worker = worker
+        dbsession.add(log_entry)
 
 
 @_click.command()
@@ -27,89 +141,19 @@ def state_updater(config):
 
     capp = _views.celery_app
     state = capp.events.State()
-    hostname_to_name = {}
-    def worker_events(event):
-        state.event(event)
-        hostname = event["hostname"]
-        inspect = capp.control.inspect(destination=[hostname])
-        active_queue = inspect.active_queues()
-        if not active_queue:
-            if hostname not in hostname_to_name:
-                return
-            name = hostname_to_name[hostname]
-        else:
-            active_queue = active_queue[hostname][0]
-            name = active_queue["name"]
-            hostname_to_name[hostname] = name
-
-        with _tm.manager:
-            dbsession = _models.get_tm_session(session_factory, _tm.manager)
-            worker_queue = dbsession.query(
-                _models.WorkerQueue
-            ).filter(
-                _models.WorkerQueue.name == name
-            ).first()
-
-            worker = dbsession.query(
-                _models.Worker
-            ).filter(
-                _models.Worker.name == hostname
-            ).first()
-            if not worker_queue:
-                worker_queue = _models.WorkerQueue(name)
-                dbsession.add(worker_queue)
-                _log.info(f"New Queue created {worker_queue.name}")
-            elif worker_queue.state != 'active':
-                _log.info(f"Queue {worker_queue.name}: {worker_queue.state} -> active")
-                worker_queue.state = 'active'
-            if not worker:
-                worker = _models.Worker(hostname, "OFFLINE")
-                dbsession.add(worker)
-            if event["type"] in ("worker-heartbeat", "worker-online") and worker.state != "ONLINE":
-                worker.state = "ONLINE"
-                _log.info(f"Worker {worker.name} -> ONLINE")
-            elif event["type"] in ("worker-offline",) and worker.state != "OFFLINE":
-                worker.state = "OFFLINE"
-                _log.info(f"Worker {worker.name} -> OFFLINE")
-
-    def task_events(event):
-        state.event(event)
-        task_id = event["uuid"]
-        with _tm.manager:
-            try:
-                _ = int(task_id)
-            except ValueError:
-                _log.info(f"ID is not a integer {task_id}")
-                return
-            dbsession = _models.get_tm_session(session_factory, _tm.manager)
-            task = dbsession.query(_models.Task).get(task_id)
-            event_type = event["type"]
-            if event_type == "task-started":
-                _log.info("Task %s [%-7s -> STARTED] @ %s", task.id, task.state, event['hostname'])
-                task.state = "STARTED"
-                task.run = _dt.datetime.utcnow()
-            elif event_type == "task-succeeded":
-                _log.info("Task %s [%-7s -> SUCCEED] @ %s", task.id, task.state, event['hostname'])
-                task.state = "SUCCEED"
-            elif event_type == "task-failed":
-                _log.info("Task %s [%-7s -> FAILED] @ %s", task.id, task.state, event['hostname'])
-                task.state = "FAILED"
-            elif event_type == "task-rejected":
-                #task.state = "REJECT"
-                _log.info("REJECTED....")
-            elif event_type == "task-retried":
-                _log.info("Task %s [%-7s -> RETRIED] @ %s", task.id, task.state, event['hostname'])
-                task.state = "RETRIED"
-            log_entry = _models.TaskLog()
-            log_entry.task_id = task.id
-            log_entry.run = _dt.datetime.utcnow()
-            log_entry.state = task.state
-            log_entry.task = task
-            dbsession.add(log_entry)
 
     with _views.celery_app.connection() as connection:
-        #from ipdb import set_trace as br; br()
-
+        worker_events = _ft.partial(
+            _worker_events,
+            state,
+            capp,
+            session_factory,
+        )
+        task_events = _ft.partial(
+            _task_events,
+            state,
+            session_factory,
+        )
         recv = _views.celery_app.events.Receiver(connection, handlers={
             "worker-online": worker_events,
             "worker-offline": worker_events,

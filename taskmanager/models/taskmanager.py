@@ -164,13 +164,23 @@ class Task(Base):
         back_populates='task',
     )
 
-    def __init__(self, title, script_id, worker_id, parent_id, state, options):
+    def __init__(
+            self,
+            title,
+            script_id,
+            worker_id,
+            parent_id,
+            state,
+            options,
+            scheduled_by="",
+    ):
         self.title = title
         self.script_id = script_id
         self.worker_id = worker_id
         self.parent_id = parent_id
         self.state = state
         self.options = options
+        self.scheduled_by = scheduled_by
 
     @property
     def log_ids(self):

@@ -18,11 +18,31 @@ class WorkerQueues(object):
         self.request = request
 
     @_view.view_config(request_method="GET", renderer="json")
-    def get(self):
+    def get_all(self):
+        worker_id = self.request.params.get("worker_id")
+        queue_names = None
         with _views.dbsession(self.request) as session:
+            if worker_id:
+                worker = session.query(
+                    _models.Worker
+                ).get(worker_id)
+                i = _views.celery_app.control.inspect([worker.name])
+                worker_queues = i.active_queues()
+                if worker_queues and worker.name in worker_queues:
+                    queue_names = [
+                        queue["name"]
+                        for queue in worker_queues[worker.name]
+                    ]
+
             queues = session.query(
                 _models.WorkerQueue
-            ).all()
+            )
+            if queue_names:
+                queues = queues.filter(
+                    _models.WorkerQueue.name.in_(queue_names)
+                )
+
+            queues = queues.all()
             return {
                 "result": _views.RESULT_OK,
                 **_schemas.WorkerQueue(
@@ -119,5 +139,5 @@ class WorkerQueue(object):
 
 
 def includeme(config):
-    config.add_route("all_queues", "/queues")
-    config.add_route("specific_queue", "/queues/:id")
+    config.add_route("all_queues", "/workerqueues")
+    config.add_route("specific_queue", "/workerqueues/:id")
