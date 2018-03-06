@@ -1,7 +1,18 @@
-from pyramid.view import notfound_view_config
+# -*- coding: utf-8 -*-
+
+import logging as _logging
+
+import pyramid.view as _view
+import pyramid.httpexceptions as _he
+
+_log = _logging.getLogger(__name__)
 
 
-@notfound_view_config(renderer='../templates/404.jinja2')
-def notfound_view(request):
-    request.response.status = 404
-    return {}
+@_view.notfound_view_config()
+def not_found(request):
+    return _he.HTTPNotFound("Ressource not found")
+
+
+@_view.forbidden_view_config()
+def forbidden(request):
+    return _he.HTTPForbidden("No entry!")
