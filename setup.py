@@ -20,9 +20,13 @@ requires = [
     'zope.sqlalchemy',
     'waitress',
     'click',
-    'celery[redis,auth,msgpack]',
-    'marshmallow',
+    'amqp',
+    'psycopg2-binary',
+    'requests',
+    'celery[auth,msgpack]',
     'marshmallow-sqlalchemy',
+    'marshmallow-jsonapi',
+    'marshmallow==3.0.0b4',
 ]
 
 tests_require = [
