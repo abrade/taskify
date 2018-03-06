@@ -407,8 +407,6 @@ class TaskChildren(object):
             }
 
 
-
-
 def includeme(config):
     config.add_route("tasks", "/tasks")
     config.add_route("tasks_state", "/tasks/state")

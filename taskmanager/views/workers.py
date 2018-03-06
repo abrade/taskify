@@ -147,7 +147,6 @@ class WorkerOption(object):
             }
 
 
-
 def includeme(config):
     config.add_route("all_workers", "/workers")
     config.add_route("specific_worker", "/workers/:id")

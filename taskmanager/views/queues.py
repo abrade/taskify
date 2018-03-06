@@ -80,7 +80,7 @@ class WorkerQueues(object):
 
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.WorkerQueue().dump(queue).data["data"],
+                **_schemas.WorkerQueue().dump(queue).data,
             }
 
 
@@ -104,7 +104,7 @@ class WorkerQueue(object):
                 }
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.WorkerQueue().dump(queue).data["data"],
+                **_schemas.WorkerQueue().dump(queue).data,
             }
 
     @_view.view_config(request_method="PATCH", renderer="json")
@@ -134,7 +134,7 @@ class WorkerQueue(object):
             session.commit()
             return {
                 "result": _views.RESULT_OK,
-                "data": _schemas.WorkerQueue().dump(queue).data["data"],
+                **_schemas.WorkerQueue().dump(queue).data,
             }
 
 
