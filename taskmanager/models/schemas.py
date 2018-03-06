@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 
-#import marshmallow_sqlalchemy as _marshmallow
 import marshmallow_jsonapi as _marshmallow
 import marshmallow_jsonapi.fields as _fields
+# import marshmallow_sqlalchemy as _marshmallow
+# import marshmallow.fields as _fields
 
 
-class Team(_marshmallow.Schema):
+Schema = _marshmallow.Schema
+# Schema = _marshmallow.ModelSchema
+
+
+class Team(Schema):
     id = _fields.Integer()
     name = _fields.Str()
 
@@ -14,7 +19,7 @@ class Team(_marshmallow.Schema):
         strict = True
 
 
-class Worker(_marshmallow.Schema):
+class Worker(Schema):
     id = _fields.Integer()
     name = _fields.Str()
     state = _fields.Str()
@@ -24,7 +29,7 @@ class Worker(_marshmallow.Schema):
         strict = True
 
 
-class WorkerQueue(_marshmallow.Schema):
+class WorkerQueue(Schema):
     id = _fields.Integer()
     name = _fields.Str()
     state = _fields.Str()
@@ -34,26 +39,29 @@ class WorkerQueue(_marshmallow.Schema):
         strict = True
 
 
-class Script(_marshmallow.Schema):
+class Script(Schema):
     id = _fields.Integer()
     name = _fields.Str()
     cmd = _fields.Str()
     status = _fields.Str()
-    #team = _fields.Nested("Team")
     team = _fields.Relationship(
         "/teams/{team_id}",
         include_data=True,
         schema="Team",
         related_url_kwargs={"team_id": "<team_id>"},
     )
+    team_id = _fields.Int()
     type = _fields.Str()
+    default_options = _fields.Dict(
+        allow_none=True,
+    )
 
     class Meta:
         type_ = "script"
         strict = True
 
 
-class ParentTask(_marshmallow.Schema):
+class ParentTask(Schema):
     id = _fields.Integer()
     title = _fields.Str(default="")
     scheduled = _fields.DateTime()
@@ -61,14 +69,19 @@ class ParentTask(_marshmallow.Schema):
     state = _fields.Str()
     locks = _fields.Str()
     options = _fields.Dict()
-    worker = _fields.Nested("Worker")
+    worker = _fields.Relationship(
+        "/workerqueues/{worker_id}",
+        include_data=True,
+        schema="WorkerQueue",
+        related_url_kwargs={"worker_id": "<worker_id>"},
+    )
 
     class Meta:
         type_ = "task"
         strict = True
 
 
-class Tasks(_marshmallow.Schema):
+class Tasks(Schema):
     id = _fields.Integer()
     scheduled = _fields.DateTime(format="%a, %d %b %Y %H:%M:%S")
     run = _fields.DateTime(format="%a, %d %b %Y %H:%M:%S", allow_none=True)
@@ -86,6 +99,9 @@ class Tasks(_marshmallow.Schema):
         schema="WorkerQueue",
         related_url_kwargs={"worker_id": "<worker_id>"},
     )
+    # worker = _fields.Nested(
+    #     "WorkerQueue",
+    # )
     depends = _fields.Nested(
         "TaskDepend",
         many=True,
@@ -101,6 +117,9 @@ class Tasks(_marshmallow.Schema):
         "/tasks/{task_id}",
         related_url_kwargs={"task_id": "<parent_id>"},
     )
+    # parent = _fields.Nested(
+    #     "Task"
+    # )
 
     children = _fields.Relationship(
         "/tasks/{task_id}/children",
@@ -130,7 +149,7 @@ class Tasks(_marshmallow.Schema):
         strict = False
 
 
-class TaskDepend(_marshmallow.Schema):
+class TaskDepend(Schema):
     id = _fields.Integer(load_from="task_id")
 
     class Meta:
@@ -138,7 +157,7 @@ class TaskDepend(_marshmallow.Schema):
         strict = True
 
 
-class TaskLog(_marshmallow.Schema):
+class TaskLog(Schema):
     id = _fields.Integer()
     task_id = _fields.Integer(dump_to="taskId", load_from="taskId")
     run = _fields.DateTime(format="%a, %d %b %Y %H:%M:%S")
@@ -156,7 +175,7 @@ class TaskLog(_marshmallow.Schema):
         strict = True
 
 
-class WorkerOptions(_marshmallow.Schema):
+class WorkerOptions(Schema):
     id = _fields.Integer()
     concurrency = _fields.Integer()
     prefetchcount = _fields.Integer()

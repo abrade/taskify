@@ -190,8 +190,12 @@ def add(title, worker, script, option, parent, depend):
     ).json()
 
     if result["result"] != "OK":
-        _click.secho("Couldn't get result. Error: {error}".format(
-            **result), fg="red")
+        _click.secho(
+            "Couldn't get result. Error: {error}".format(
+                **result
+            ),
+            fg="red",
+        )
         return
     _click.secho("{id}".format(**result), fg="green")
 
