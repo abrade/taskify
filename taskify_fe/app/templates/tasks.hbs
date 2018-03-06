@@ -1,0 +1,40 @@
+<table class="ui small selectable table">
+  <thead>
+    <tr>
+      <th></th>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Script</th>
+      <th>Worker</th>
+      <th>Scheduled</th>
+      <th>Run</th>
+      <th>Team</th>
+      <th>State</th>
+    </tr>
+  </thead>
+  <tbody>
+{{#each model as |task|}}
+{{#link-to 'task' (query-params task=task.id) tagName="tr"}}
+  <td class="collapsing">
+    {{#if (eq task.state "FAILED")}}
+    <div class="ui small basic icon buttons">
+    <button class="ui icon button">
+      <i class="checkmark icon"></i>
+    </button>
+    </div>
+    {{/if}}
+  </td>
+  <td>
+    <div class="ui {{task.taskColor}} tiny horizontal label">{{task.id}}</div>
+  </td>
+  <td>{{task.title}}</td>
+  <td>{{task.script.name}}</td>
+  <td>{{task.worker.name}}</td>
+  <td>{{task.scheduled}}</td>
+  <td>{{task.run}}</td>
+  <td>{{task.script.team.name}}</td>
+  <td>{{task.state}}</td>
+{{/link-to}}
+{{/each}}
+  </tbody>
+</table>

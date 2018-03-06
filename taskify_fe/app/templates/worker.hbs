@@ -1,0 +1,59 @@
+{{outlet}}
+<div class="ui segment">
+  <div class="ui top left attached label {{model.worker.stateLabelColor}}">{{model.worker.name}} - {{model.worker.state}}</div>
+  <div class="ui centered grid">
+    <div class="row">
+      <div class="seven wide column">
+        <div class="ui segment blue">
+          <div class="ui top left attached label">Queues</div>
+          <table class="ui small table">
+            <tbody>
+              {{#each model.queues as |queue|}}
+              <tr>
+                <td>{{queue.name}}</td>
+              </tr>
+              {{/each}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="seven wide column">
+        <div class="ui segment blue">
+          <div class="ui top left attached label">Options</div>
+          <table class="ui small table">
+            <tbody>
+              <tr>
+                <td>Concurrency</td>
+                <td>{{model.options.concurrency}}</td>
+              </tr>
+              <tr>
+                <td>Pre-fetch count</td>
+                <td>{{model.options.prefetchcount}}</td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="fourteen wide column">
+        <div class="ui segment blue">
+          <div class="ui top left attached label">Statistics</div>
+          <table class="ui small table">
+            <tbody>
+              {{#each-in model.options.statistics as |key value|}}
+              <tr>
+                <td>{{key}}</td>
+                <td>{{value}}</td>
+              </tr>
+              {{/each-in}}
+            </tbody>
+          </table>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>

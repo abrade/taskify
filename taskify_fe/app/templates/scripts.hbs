@@ -1,0 +1,28 @@
+{{outlet}}
+<div class="ui segment">
+  <div class="ui vertical labeled icon buttons">
+  {{#link-to "script.new" tagName="button" class="ui primary button"}}<i class="add icon"></i>Add Script{{/link-to}}
+  </div>
+  <table class="ui small selectable table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Command</th>
+        <th>Options</th>
+        <th>Status</th>
+        <th>Team</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each model as |script|}}
+      <tr>
+        <td>{{script.name}}</td>
+        <td>{{script.cmd}}</td>
+        <td>{{script.default_options}}</td>
+        <td>{{script.status}}</td>
+        <td>{{script.team.name}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>

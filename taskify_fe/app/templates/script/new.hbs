@@ -1,0 +1,26 @@
+<div class="ui segment">
+  <form class="ui form">
+    <div class="field">
+      <label>Name</label>
+      {{input value=model.script.name placeholder="Script Name"}}
+    </div>
+    <div class="field">
+      <label>Command</label>
+      {{input value=model.script.cmd placeholder="Command"}}
+    </div>
+    <div class="field">
+      <label>Options</label>
+      {{textarea value=model.script.default_options}}
+    </div>
+    <div class="field">
+      <label>Team</label>
+      <select class="ui fluid dropdown" value={{model.script.team_id}}>
+        <option value="">Teams</option>
+        {{#each model.teams as |team|}}
+        <option value="{{team.id}}">{{team.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <button {{action "submit"}} class="ui button" type="submit">Save</button>
+  </form>
+</div>

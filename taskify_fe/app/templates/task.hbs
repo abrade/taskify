@@ -1,0 +1,64 @@
+<div class="ui segment {{model.task.taskColor}}">
+  <div class="ui top left attached {{model.task.taskColor}} label">{{model.task.title}}</div>
+  <div class="ui grid">
+    <div class="row">
+      <div class="column">
+        <div class="ui centered grid">
+          <div class="three wide column">
+          {{#if (not-eq model.task.parent.id undefined)}}
+            {{#link-to 'task' (query-params task=model.task.parent.id)}}
+            <div class="ui label {{model.task.parent.taskColor}}">{{model.task.parent.id}}</div>
+            {{/link-to}}
+          {{/if}}
+          </div>
+          <div class="column">
+            <div class="ui label {{model.task.taskColor}}">{{model.task.id}}</div>
+          </div>
+          <div class="three wide column">
+          {{#if (gt model.task.children.length 0)}}
+            {{#each model.task.children as |child_task|}} {{log "Child: " child_task}}
+            {{#link-to 'task' (query-params task=child_task.id)}}
+            <div class="ui label {{child_task.taskColor}}">{{child_task.id}}</div>
+            {{/link-to}}
+            {{/each}}
+          {{/if}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="column">
+        <div class="ui raised segment">
+          <div class="ui top left attached label">Task details</div>
+          <div class="ui grid">
+            <div class="row">
+              <div class="six wide column">
+                {{task-options options=model.task.options}}
+              </div>
+              <div class="ten wide column">
+                {{task-details task=model.task details=model.details}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="column">
+        <table class="ui small selectable celled table">
+          <tbody>
+            {{#each model.logs as |task_log|}} {{log task_log.worker.id}}
+            <tr class="{{task_log.taskColor}}">
+              <td>{{task_log.taskId}}</td>
+              <td>{{task_log.worker.name}}</td>
+              <td>{{task_log.run}}</td>
+              <td>{{task_log.state}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+
+      </div>
+    </div>
+  </div>
+</div>

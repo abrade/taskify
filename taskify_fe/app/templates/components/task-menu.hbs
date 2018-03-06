@@ -1,0 +1,31 @@
+<div class="ui horizontal menu">
+  <div class="header item">
+    <i class="settings icon"></i>
+    TM
+  </div>
+  {{#link-to 'scripts' class="item"}} Scripts {{/link-to}}
+  {{#link-to 'workers' class="item"}} Workers {{/link-to}}
+  {{#each menu as |entry|}} {{#link-to 'tasks' (query-params state=entry.name) class="item"}} {{entry.label}}
+  <div class="ui left small label {{entry.color}}">{{get states entry.name}}</div>
+  {{/link-to}} {{/each}}
+  {{#if (eq task null)}}
+  <div class="right menu">
+    <div class="item">
+      <div class="ui icon buttons">
+        <button class="ui icon button">
+          <i class="checkmark icon"></i>
+        </button>
+        <button class="ui button">
+          <i class="play icon"></i>
+        </button>
+        <button class="ui button">
+          <i class="repeat icon"></i>
+        </button>
+        <button class="ui button">
+          <i class="remove icon"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+</div>

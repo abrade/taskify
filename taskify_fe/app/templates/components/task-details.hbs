@@ -1,0 +1,22 @@
+<table class="ui small table">
+  <tbody>
+    {{#each details as |detail|}}
+    <tr>
+      <td>{{detail.name}}</td>
+      <td>{{get task detail.key}}</td>
+    </tr>
+    {{/each}}
+    <tr>
+      <td>Queue</td>
+      <td>{{task.worker.name}}</td>
+    </tr>
+    <tr>
+      <td>Script</td>
+      <td>{{task.script.name}}</td>
+    </tr>
+    <tr>
+      <td>Command</td>
+      <td>{{task.script.cmd}}</td>
+    </tr>
+  </tbody>
+</table>

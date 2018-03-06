@@ -1,0 +1,6 @@
+{
+  "name": "taskify-fe",
+  "dependencies": {
+    "semantic-ui": "^2.2.14"
+  }
+}
