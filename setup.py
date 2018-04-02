@@ -66,6 +66,8 @@ setup(
             'state_updater = taskmanager.scripts.state_updater:main',
             'task_scheduler = taskmanager.scripts.task_scheduler:main',
             'tasky = taskmanager.scripts.cli:main',
+            'test_run = taskmanager.scripts.test_script_1:main',
+            'create_test_data = taskmanager.scripts.create_testdata:main',
         ],
     },
 )

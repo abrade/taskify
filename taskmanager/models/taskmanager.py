@@ -216,3 +216,9 @@ class TaskLog(Base):
         "Worker",
         backref="task_runs",
     )
+
+    def __init__(self, task_id, run, state, worker_id):
+        self.task_id = task_id
+        self.run = run
+        self.state = state
+        self.worker_id = worker_id
