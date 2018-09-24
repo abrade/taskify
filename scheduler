@@ -1,0 +1,3 @@
+FROM taskmanager.worker:latest
+
+ENTRYPOINT task_scheduler development.ini

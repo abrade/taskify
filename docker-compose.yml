@@ -1,0 +1,55 @@
+version: '2'
+services:
+    rabbit:
+        hostname: rabbit
+        image: rabbitmq:latest
+        environment:
+            - RABBITMQ_DEFAULT_USER=tm
+            - RABBITMQ_DEFAULT_PASS=tasky
+        ports:
+            - "5672:5672"
+
+    worker-default:
+        build:
+            context: .
+            dockerfile: default-worker
+            args:
+              - QUEUE=default
+              - CONCURRENT=10
+        hostname: default-worker
+        volumes:
+            - .:/app
+        links:
+            - rabbit
+        depends_on:
+            - rabbit
+    worker-1:
+        build:
+            context: .
+            dockerfile: default-worker
+            args:
+              - QUEUE=worker1
+              - CONCURRENT=10
+        hostname: worker1
+        volumes:
+            - .:/app
+        links:
+            - rabbit
+        depends_on:
+            - rabbit
+    scheduler:
+      build:
+        context: .
+        dockerfile: scheduler
+      hostname: task-scheduler
+      network_mode: "host"
+      volumes:
+        - /app
+    state-updater:
+      build:
+        context: .
+        dockerfile: state_updater
+      hostname: state-updater
+      network_mode: "host"
+      volumes:
+        - /app        

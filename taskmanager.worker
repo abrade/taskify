@@ -1,0 +1,7 @@
+FROM python:3.6
+ADD . /app/
+ADD taskmanager.conf /etc/taskmanager.conf
+#  ADD requirements.txt /app/requirements.txt
+# ADD ./taskmanager /app/
+WORKDIR /app/
+RUN python setup.py develop

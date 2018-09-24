@@ -1,0 +1,3 @@
+FROM taskmanager.worker:latest
+
+ENTRYPOINT state_updater development.ini
