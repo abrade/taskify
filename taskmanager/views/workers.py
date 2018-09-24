@@ -122,25 +122,30 @@ class WorkerOption(object):
     def get_option(self):
         worker_id = self.request.params.get("worker_id")
         with _views.dbsession(self.request) as session:
-            if worker_id:
-                worker = session.query(
-                    _models.Worker
-                ).get(worker_id)
-                i = _views.celery_app.control.inspect([worker.name])
-                stats = i.stats()
-                options = {
-                    "id": worker_id
+            if not worker_id:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Worker with id {worker_id} not found",
+                    "data": None,
                 }
-                if stats and worker.name in stats:
-                    stats = stats[worker.name]
-                    options.update(
-                        {
-                            "id": worker_id,
-                            "concurrency": stats["pool"]["max-concurrency"],
-                            "prefetchcount": stats["prefetch_count"],
-                            "statistics": stats["rusage"],
-                        }
-                    )
+            worker = session.query(
+                _models.Worker
+            ).get(worker_id)
+            i = _views.celery_app.control.inspect([worker.name])
+            stats = i.stats()
+            options = {
+                "id": worker_id
+            }
+            if stats and worker.name in stats:
+                stats = stats[worker.name]
+                options.update(
+                    {
+                        "id": worker_id,
+                        "concurrency": stats["pool"]["max-concurrency"],
+                        "prefetchcount": stats["prefetch_count"],
+                        "statistics": stats["rusage"],
+                    }
+                )
             return {
                 "result": _views.RESULT_OK,
                 **_schemas.WorkerOptions().dump(options).data,

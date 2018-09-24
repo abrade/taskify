@@ -43,13 +43,15 @@ class WorkerQueues(object):
                 )
 
             queues = queues.all()
+            queues = _schemas.WorkerQueue(
+                many=True
+            ).dump(
+                queues
+            )
+            _log.info(queues)
             return {
                 "result": _views.RESULT_OK,
-                **_schemas.WorkerQueue(
-                    many=True
-                ).dump(
-                    queues
-                ).data,
+                **queues.data,
             }
 
     @_view.view_config(request_method="POST", renderer="json")

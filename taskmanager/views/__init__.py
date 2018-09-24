@@ -5,6 +5,7 @@ import configparser as _cp
 import contextlib as _ct
 import transaction as _ta
 import subprocess as _subprocess
+import importlib as _importlib
 
 import celery as _celery
 import celery.result as _result
@@ -44,7 +45,7 @@ def get_result(task_id):
 
 
 @celery_app.task(retry_kwargs={'max_retries': 5})
-def start_task(executable, options, additional_info=None):
+def start_task(executable, config, options, additional_info=None):
     current_env = _os.environ.copy()
     for k, v in options.items():
         if isinstance(v, int):
@@ -54,7 +55,7 @@ def start_task(executable, options, additional_info=None):
     current_env["PARENT_ID"] = ''
     if additional_info and "parent_id" in additional_info:
         current_env["PARENT_ID"] = str(additional_info.get("parent_id", ""))
-    cmd = executable
+    cmd = [executable, config]
     try:
         task = _subprocess.Popen(
             cmd,
@@ -76,6 +77,31 @@ def start_task(executable, options, additional_info=None):
     except Exception as e:
         _log.error("Something happen .... retry... %r", e)
         start_task.retry()
+
+
+@celery_app.task(retry_kwargs={'max_retries': 5})
+def start_function(function, config, args, additional_info=None):
+    print('{}, {}, {}'.format(function, args, additional_info))
+    module, func = function.rsplit('.', 1)
+    try:
+        module = _importlib.import_module(module)
+    except ImportError as e:
+        return (-1, '', e)
+
+    func = getattr(module, func)
+    if func is None:
+        return (-1, '', 'Function not found!')
+    try:
+        if isinstance(args, (list, tuple)):
+            ret = func(config, *args)
+        elif isinstance(args, dict):
+            ret = func(config, **args)
+    except Exception as e:
+        print('EXCEPTION : %r', e)
+        _log.error("Catched exception ... %r", e)
+        start_function.retry()
+
+    return (0, ret, '')
 
 
 @_ct.contextmanager

@@ -2,6 +2,7 @@
 
 import json as _json
 import logging as _logging
+import math as _math
 
 import pyramid.view as _view
 
@@ -17,12 +18,12 @@ def get_worker(worker_name, session, use_default_worker=False):
 
     Args:
         worker_name (str): name of worker
-        session (object): the sqlalchemy db session
+        session (DBSession): the sqlalchemy db session
         use_default_worker (bool, optional): flag to use default
             worker unless no worker found, default to False
 
     Returns:
-        object: The sql alchemy model if worker is found else None
+        Worker: The sql alchemy model if worker is found else None
     """
     result = session.query(
         _models.WorkerQueue
@@ -48,11 +49,11 @@ def get_script(script_name, session):
     """ Helper function to get script
 
     Args:
-        script_name (str): the script name
-        session (object): the sqlalchemy db session
+        script_name (list): the script name
+        session (DBSession): the sqlalchemy db session
 
     Returns:
-        object: The sql alchemy model if script was found else None
+        Script: The sql alchemy model if script was found else None
     """
     return session.query(
         _models.Script
@@ -86,7 +87,13 @@ class Tasks(object):
     @_view.view_config(request_method="POST")
     def post_task(self):
         try:
-            data = self.request.json
+            data = _schemas.Tasks().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+        try:
+            if not data:
+                data = self.request.json
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": "error",
@@ -191,9 +198,12 @@ class Tasks(object):
                     _models.Task.script_id.in_(
                         tuple(script.id for script in scripts))
                 )
-            tasks = tasks.order_by(
+            query = tasks.order_by(
                 _models.Task.id.desc()
-            ).offset(
+            )
+            count = _math.ceil(query.count() / max_entries)
+            _log.info("Count %s", count)
+            tasks = query.offset(
                 page*max_entries
             ).limit(
                 max_entries
@@ -201,8 +211,18 @@ class Tasks(object):
             additional = {}
             if include_data:
                 additional["include_data"] = ("script", "worker")
+            base_url = self.request.route_url("tasks")
+            next_page = page + 1 if (page + 1) < count else count
+            prev_page = page - 1 if (page - 1) > 0 else 1
             return {
                 "result": _views.RESULT_OK,
+                "links": {
+                    "self": self.request.url,
+                    "next": "{}?page={}&limit={}".format(base_url, next_page, max_entries),
+                    "prev": "{}?page={}&limit={}".format(base_url, prev_page, max_entries),
+                    "first": "{}?page={}&limit={}".format(base_url, 1, max_entries),
+                    "last": "{}?page={}&limit={}".format(base_url, count, max_entries),
+                },
                 **_schemas.Tasks(**additional).dump(tasks, many=True).data,
             }
 
@@ -301,7 +321,7 @@ class Task(object):
 
             return {
                 "result": _views.RESULT_OK,
-                **_schemas.Task().dump(task).data,
+                **_schemas.Tasks().dump(task).data,
             }
 
     @_view.view_config(request_method="DELETE")
@@ -323,7 +343,7 @@ class Task(object):
 
             return {
                 "result": _views.RESULT_OK,
-                **_schemas.Task().dump(task).data,
+                **_schemas.Tasks().dump(task).data,
             }
 
     @_view.view_config(route_name="task_result", request_method="GET")

@@ -121,10 +121,12 @@ def _task_events(state, session_factory, event):
         ).filter(
             _models.Worker.name == event["hostname"]
         ).one()
-        log_entry = _models.TaskLog()
-        log_entry.task_id = task.id
-        log_entry.run = _dt.datetime.utcnow()
-        log_entry.state = task.state
+        log_entry = _models.TaskLog(
+            task.id,
+            _dt.datetime.utcnow(),
+            task.state,
+            worker.id,
+        )
         log_entry.task = task
         log_entry.worker = worker
         dbsession.add(log_entry)

@@ -17,8 +17,8 @@ import taskmanager.views as _views
 _log = _logging.getLogger(__name__)
 
 
-def _start_task(task):
-    params = [task.script.cmd, task.options]
+def _start_task(task, config):
+    params = [task.script.cmd, config, task.options]
     additional_info = {}
     if task.parent:
         additional_info["parent_id"] = task.parent.id
@@ -33,7 +33,23 @@ def _start_task(task):
     return task_run
 
 
-def _handle_failed_tasks(session_factory):
+def _start_function(task, config):
+    params = [task.script.cmd, config, task.options]
+    additional_info = {}
+    if task.parent:
+        additional_info["parent_id"] = task.parent.id
+    task_run = _views.start_function.apply_async(
+        args=params,
+        kwargs={"additional_info": additional_info},
+        task_id=str(task.id),
+        routing_key=task.worker.name,
+        queue=task.worker.name,
+    )
+    task.run = _dt.datetime.utcnow()
+    return task_run
+
+
+def _handle_failed_tasks(session_factory, config):
     with _tm.manager:
         session = _models.get_tm_session(session_factory, _tm.manager)
         tasks = session.query(
@@ -46,10 +62,10 @@ def _handle_failed_tasks(session_factory):
             if task.run:
                 diff = _dt.datetime.utcnow() - task.run
             else:
-                diff = _dt.timedelta(minutes=1)
-            if diff > _dt.timedelta(minutes=5):
+                diff = None
+            if diff is None or diff > _dt.timedelta(minutes=5):
                 if task.script.is_script():
-                    task_run = _start_task(task)
+                    task_run = _start_task(task, config)
                 _log.info("Restart failed task %r", task_run.id)
 
 
@@ -57,13 +73,13 @@ def _check_parent(task):
     if task.parent is None:
         return True
 
-    if task.parent and task.parent.state == "SUCCEED":
+    if task.parent.state == "SUCCEED":
         return True
 
     return False
 
 
-def _handle_prerun_tasks(session_factory):
+def _handle_prerun_tasks(session_factory, config):
     with _tm.manager:
         session = _models.get_tm_session(session_factory, _tm.manager)
         tasks = session.query(
@@ -94,7 +110,10 @@ def _handle_prerun_tasks(session_factory):
                 )
                 if not depends_state:
                     if task.script.is_script():
-                        task_run = _start_task(task)
+                        task_run = _start_task(task, config)
+                    elif task.script.is_function():
+                        task_run = _start_function(task, config)
+
                     if task.parent:
                         log_str = "Start Task {} after parent {}".format(
                             task.id,
@@ -103,8 +122,9 @@ def _handle_prerun_tasks(session_factory):
                         _log.info(log_str)
                     else:
                         _log.info(
-                            "Start Task '{}'".format(
-                                task_run.id
+                            "Start Task '{}' ({})".format(
+                                task.id,
+                                task.script.type,
                             )
                         )
 
@@ -124,8 +144,8 @@ def scheduler(config, waittime):
     session_factory = _models.get_session_factory(engine)
     _log.info("Scheduler up and running...")
     while True:
-        _handle_prerun_tasks(session_factory)
-        _handle_failed_tasks(session_factory)
+        _handle_prerun_tasks(session_factory, config)
+        _handle_failed_tasks(session_factory, config)
         _time.sleep(waittime)
 
 

@@ -9,10 +9,10 @@ _log = _logging.getLogger(__name__)
 
 
 @_view.notfound_view_config()
-def not_found(request):
+def not_found(_request):
     return _he.HTTPNotFound("Ressource not found")
 
 
 @_view.forbidden_view_config()
-def forbidden(request):
+def forbidden(_request):
     return _he.HTTPForbidden("No entry!")

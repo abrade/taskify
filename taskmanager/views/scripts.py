@@ -42,7 +42,15 @@ class Scripts(object):
     @_view.view_config(request_method="POST", renderer="json")
     def post_script(self):
         try:
-            data = self.request.json
+            _log.info(self.request.json)
+            data = _schemas.Script().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+
+        try:
+            if not data:
+                data = self.request.json
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": _views.RESULT_ERROR,
