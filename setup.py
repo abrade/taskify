@@ -68,6 +68,7 @@ setup(
             'tasky = taskmanager.scripts.cli:main',
             'test_run = taskmanager.scripts.test_script_1:main',
             'create_test_data = taskmanager.scripts.create_testdata:main',
+            'start_local = taskmanager.client.application:task_app',
         ],
     },
 )

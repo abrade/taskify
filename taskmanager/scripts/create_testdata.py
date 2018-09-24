@@ -86,13 +86,14 @@ class TaskBuilder(object):
         self.worker = None
         self.script = None
         self.task = None
+        self.team = None
 
     def create_script(
             self,
             name,
             cmd,
             status,
-            type=_models.Script.SCRIPT_TYPE,
+            type_=_models.Script.SCRIPT_TYPE,
             default_options=None,
     ):
         self.script = self.helper.create_script(
@@ -100,7 +101,7 @@ class TaskBuilder(object):
             cmd,
             self.team.id,
             status,
-            type=type,
+            type=type_,
             default_options=default_options,
         )
         return self
@@ -315,6 +316,24 @@ def test_data(config):
         "FAILED",
     )
 
+    builder5 = TaskBuilder(settings)
+    builder5.with_team(
+        builder4.team.id
+    ).create_script(
+        "run_func",
+        "taskmanager.scripts.test_function.simulate_function",
+        "ACTIVE",
+        type_=_models.Script.FUNC_TYPE,
+        default_options={"timeout": "5", "abort": "False"},
+    ).with_queue(
+        builder4.queue.id
+    ).with_worker(
+        builder4.worker.id
+    ).create_task(
+        "run_func",
+        "PRERUN",
+    )
 
-def main(argv=tuple(_sys.argv)):
+
+def main(_argv=tuple(_sys.argv)):
     test_data()
