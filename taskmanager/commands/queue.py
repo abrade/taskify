@@ -9,7 +9,6 @@ from .config import get_config
 
 import taskmanager.models.schemas as _schema
 
-
 @_click.group(short_help="command to get/create/update queues")
 def queue():
     pass
@@ -38,3 +37,29 @@ def list(json, csv):
     else:
         for queue in data:
             _click.echo(queue["name"])
+
+
+@queue.command(short_help="Add a queue")
+@_click.argument("name")
+def add(name):
+    cfg = get_config()
+    queue = {
+        'name': name,
+        'state': 'active',
+    }
+
+    params = _schema.WorkerQueue().dump(queue).data
+    result = _requests.post(
+        "{server}/workerqueues".format(**cfg),
+        data=_json.dumps(params)
+    ).json()
+
+    if result["result"] != "OK":
+        _click.secho(
+            "Couldn't get result. Error: {error}".format(
+                **result
+            ),
+            fg="red",
+        )
+        return
+    _click.secho("Queue created", fg="green")
