@@ -21,6 +21,44 @@ _COLORS = {
 }
 
 
+def _get_worker_queue_by_name(queue_name):
+    cfg = get_config()
+    url = "{server}/workerqueues/name/{queue_name}".format(
+        queue_name=queue_name,
+        **cfg,
+    )
+    try:
+        result = _requests.get(url).json()
+    except _json.JSONDecodeError:
+        return None
+    if result["result"] != "OK":
+        _click.secho(
+            "Couldn't get result. Error: {error}".format(**result),
+            fg="red",
+        )
+        return
+    return _schema.WorkerQueue().load(result).data
+
+
+def _get_script_by_name(script_name):
+    cfg = get_config()
+    url = "{server}/scripts/name/{script_name}?include_data=1".format(
+        script_name=script_name,
+        **cfg,
+    )
+    try:
+        result = _requests.get(url).json()
+    except _json.JSONDecodeError:
+        return None
+    if result["result"] != "OK":
+        _click.secho(
+            "Couldn't get result. Error: {error}".format(**result),
+            fg="red",
+        )
+        return
+    return _schema.Script().load(result).data
+
+
 def _get_remote_data(task, url, data_type, schema):
     url = "{server}/{url}/{script}?include_data=1".format(
         script=task[data_type],
@@ -170,20 +208,46 @@ def list(format, team_id, script_id, worker_id, state, limit):
 @_click.option("--depend", type=int, multiple=True, help="Task depending on Task ids", required=False)
 def add(title, worker, script, option, parent, depend):
     cfg = get_config()
+    worker_queue = _get_worker_queue_by_name(worker)
+    if worker_queue is None:
+        _click.secho(
+            "Queue {worker!r} not found.".format(
+                worker=worker
+            ),
+            fg="red",
+        )
+        return
+    script_data = _get_script_by_name(script)
+    if script_data is None:
+        _click.secho(
+            "Script {script!r} not found.".format(
+                script=script
+            ),
+            fg="red",
+        )
+        return
+
     params = {
         "title": title,
-        "worker": worker,
-        "script": script,
+        "worker": worker_queue,
+        "script": script_data,
+        "worker_id": worker_queue["id"],
+        "script_id": script_data["id"],
         "options": {
             opt[0]: opt[1]
             for opt in option
         },
-        "scheduled_by": _platform.node(),
+        "state": "PRERUN",
+        "scheduledBy": _platform.node(),
+        "depends": [],
     }
     if parent:
         params["parent_id"] = parent
     if depend:
         params["depends"] = depend
+    # {"include_data": ("script", "worker",)}
+    from ipdb import set_trace as br; br()
+    params = _schema.Tasks(include_data=("script", "worker")).dump(params).data
     result = _requests.post(
         "{server}/tasks".format(**cfg),
         data=_json.dumps(params)

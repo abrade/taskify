@@ -58,9 +58,15 @@ class WorkerQueues(object):
     def post(self):
         # worker_name = self.request.params.get("name")
         _log.debug("Body: %s", self.request.body)
+        data = None
         try:
-            data = self.request.json
-            _log.debug("Data: %s", data)
+            data = _schemas.WorkerQueue().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+        try:
+            if not data:
+                data = self.request.json
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": _views.RESULT_ERROR,
@@ -140,6 +146,32 @@ class WorkerQueue(object):
             }
 
 
+@_view.view_defaults(route_name="name_queue")
+class WorkerNameQueue(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(request_method="GET", renderer="json")
+    def get_one(self):
+        name = self.request.matchdict.get("name")
+        with _views.dbsession(self.request) as session:
+            queue = session.query(
+                _models.WorkerQueue
+            ).filter_by(name=name).all()
+            print(queue)
+            if queue is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Worker with id {name} not found",
+                    "data": None,
+                }
+            return {
+                "result": _views.RESULT_OK,
+                **_schemas.WorkerQueue().dump(queue[0]).data,
+            }
+
+
 def includeme(config):
     config.add_route("all_queues", "/workerqueues")
     config.add_route("specific_queue", "/workerqueues/:id")
+    config.add_route("name_queue", "/workerqueues/name/:name")

@@ -13,7 +13,7 @@ import taskmanager.models.schemas as _schemas
 _log = _logging.getLogger(__name__)
 
 
-def get_worker(worker_name, session, use_default_worker=False):
+def get_worker(worker_id, session, use_default_worker=False):
     """ Helper function to get worker by name
 
     Args:
@@ -27,9 +27,7 @@ def get_worker(worker_name, session, use_default_worker=False):
     """
     result = session.query(
         _models.WorkerQueue
-    ).filter(
-        _models.WorkerQueue.name == worker_name
-    ).first()
+    ).get(worker_id)
 
     if not result and use_default_worker:
         _log.info("Worker not found, use default...")
@@ -43,6 +41,12 @@ def get_worker(worker_name, session, use_default_worker=False):
         return
 
     return result
+
+
+def get_script_by_id(script_id, session):
+    return session.query(
+        _models.Script
+    ).get(script_id)
 
 
 def get_script(script_name, session):
@@ -101,8 +105,8 @@ class Tasks(object):
             }
         _log.info("Data: {}".format(data))
         title = data.get("title")
-        worker_name = data.get("worker")
-        script_name = [data.get("script")]
+        worker_id = data.get("worker")
+        script_id = [data.get("script")]
         options = data.get("options", {})
         parent_id = data.get("parent_id")
         depends = data.get("depends", [])
@@ -112,14 +116,14 @@ class Tasks(object):
         _log.debug(f"Depends: {depends}")
         with _views.dbsession(self.request) as session:
             # request.registry.settings.get('use_default_worker', False)
-            worker = get_worker(worker_name, session)
+            worker = get_worker(worker_id, session)
             if not worker:
                 return {
                     "result": _views.RESULT_ERROR,
                     "error": "Couldn't find worker"
                 }
 
-            script = get_script(script_name, session)
+            script = get_script_by_id(script_id, session)
             if not script:
                 return {
                     "result": _views.RESULT_ERROR,
@@ -133,7 +137,7 @@ class Tasks(object):
 
             task = _models.Task(
                 title,
-                script[0].id,
+                script.id,
                 worker.id,
                 parent_id,
                 "PRERUN",

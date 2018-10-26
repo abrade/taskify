@@ -193,6 +193,37 @@ class Script(object):
         }
 
 
+@_view.view_defaults(route_name="script_name")
+class ScriptName(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(request_method="GET", renderer="json")
+    def get_script(self):
+        script_name = self.request.matchdict.get("name")
+        include_data = self.request.params.get("include_data")
+        additional = {}
+        if include_data:
+            additional["include_data"] = ("team",)
+
+        with _views.dbsession(self.request) as session:
+            script = session.query(
+                _models.Script
+            ).filter_by(name=script_name).all()
+            print(script)
+            if script is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Script with id {script_name} not found",
+                    "data": None,
+                }
+            return {
+                "result": _views.RESULT_OK,
+                **_schemas.Script(**additional).dump(script[0]).data,
+            }
+
+
 def includeme(config):
     config.add_route("all_scripts", "/scripts")
     config.add_route("specific_script", "/scripts/:id")
+    config.add_route("script_name", "/scripts/name/:name")
