@@ -31,7 +31,13 @@ class Teams(object):
     @_view.view_config(request_method="POST")
     def post_team(self):
         try:
-            data = self.request.json
+            data = _schemas.Team().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+        try:
+            if not data:
+                data = self.request.json
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": _views.RESULT_ERROR,

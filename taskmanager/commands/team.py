@@ -46,9 +46,13 @@ def list(json, csv):
 @_click.argument("name")
 def add(name):
     cfg = get_config()
+    params = {
+        'name': name,
+    }
+    params = _schema.Team().dump(params).data
     result = _requests.post(
         "{server}/teams".format(**cfg),
-        data=_json.dumps({"name": name})
+        data=_json.dumps(params)
     ).json()
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
