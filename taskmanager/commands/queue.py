@@ -15,18 +15,22 @@ def queue():
 
 
 @queue.command(short_help="List all queues")
-@_click.option("--json", is_flag=True)
-@_click.option("--csv", is_flag=True)
-def list(json, csv):
+@_click.option(
+    "--format",
+    type=_click.Choice(["name", "json", "csv"]),
+    default="name",
+    help="Select output format (default: name)"
+)
+def list(format):
     cfg = get_config()
     result = _requests.get("{server}/workerqueues".format(**cfg)).json()
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
     data = _schema.WorkerQueue(many=True).load(result).data
-    if json:
+    if format == "json":
         _click.echo(_json.dumps(data))
-    elif csv:
+    elif format == "csv":
         _click.echo(",".join(data[0].keys()))
         for queue in data:
             _click.echo(

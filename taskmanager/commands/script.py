@@ -59,10 +59,7 @@ def list(format):
         for script in data:
             output = []
             for _key, value in script.items():
-                if not isinstance(value, dict):
-                    output.append(str(value))
-                else:
-                    output.append(str(value["name"]))
+                output.append(str(value))
             _click.echo(",".join(output))
     else:
         for script in data:

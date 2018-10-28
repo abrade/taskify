@@ -16,9 +16,13 @@ def team():
 
 
 @team.command(short_help="Get all teams")
-@_click.option("--json", is_flag=True)
-@_click.option("--csv", is_flag=True)
-def list(json, csv):
+@_click.option(
+    "--format",
+    type=_click.Choice(["name", "json", "csv"]),
+    default="name",
+    help="Select output format (default: name)"
+)
+def list(format):
     cfg = get_config()
     result = _requests.get(
         "{server}/teams".format(**cfg),
@@ -27,9 +31,9 @@ def list(json, csv):
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
     data = _schema.Team().load(result, many=True).data
-    if json:
+    if format == "json":
         _click.echo(_json.dumps(data))
-    elif csv:
+    elif format == "csv":
         _click.echo(",".join(data[0].keys()))
         for team in data:
             _click.echo(

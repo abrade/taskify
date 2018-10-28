@@ -16,18 +16,22 @@ def worker():
 
 
 @worker.command(short_help="List all workers")
-@_click.option("--json", is_flag=True)
-@_click.option("--csv", is_flag=True)
-def list(json, csv):
+@_click.option(
+    "--format",
+    type=_click.Choice(["name", "json", "csv"]),
+    default="name",
+    help="Select output format (default: name)"
+)
+def list(format):
     cfg = get_config()
     result = _requests.get("{server}/workers".format(**cfg)).json()
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
     data = _schema.Worker().load(result, many=True).data
-    if json:
+    if format == "json":
         _click.echo(_json.dumps(data))
-    elif csv:
+    elif format == "csv":
         _click.echo(",".join(data[0].keys()))
         for worker in data:
             _click.echo(
@@ -42,7 +46,7 @@ def list(json, csv):
 
 @worker.command(short_help="Create new worker")
 @_click.argument("name")
-def new(name):
+def add(name):
     cfg = get_config()
     params = {
         'name': name
