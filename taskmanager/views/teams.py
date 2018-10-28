@@ -139,6 +139,31 @@ class Team(object):
             }
 
 
+@_view.view_defaults(route_name="name_team", renderer="json")
+class TeamName(object):
+    def __init__(self, request):
+        self.request = request
+
+    @_view.view_config(request_method="GET")
+    def get_one(self):
+        team_name = self.request.matchdict.get("name")
+        with _views.dbsession(self.request) as session:
+            team = session.query(
+                _models.Team
+            ).filter_by(name=team_name).all()
+            if team is None:
+                return {
+                    "result": _views.RESULT_NOTFOUND,
+                    "error": f"Team with id {team_name} not found",
+                    "data": None,
+                }
+            return {
+                "result": _views.RESULT_OK,
+                **_schemas.Team().dump(team[0]).data,
+            }
+
+
 def includeme(config):
     config.add_route("all_teams", "/teams")
     config.add_route("specific_team", "/teams/:id")
+    config.add_route("name_team", "/teams/name/:name")

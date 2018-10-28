@@ -246,7 +246,6 @@ def add(title, worker, script, option, parent, depend):
     if depend:
         params["depends"] = depend
     # {"include_data": ("script", "worker",)}
-    from ipdb import set_trace as br; br()
     params = _schema.Tasks(include_data=("script", "worker")).dump(params).data
     result = _requests.post(
         "{server}/tasks".format(**cfg),

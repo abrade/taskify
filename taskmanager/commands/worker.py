@@ -44,9 +44,13 @@ def list(json, csv):
 @_click.argument("name")
 def new(name):
     cfg = get_config()
+    params = {
+        'name': name
+    }
+    params = _schema.Worker().dump(params).data
     result = _requests.post(
         "{server}/workers".format(**cfg),
-        data=_json.dumps({"name": name})
+        data=_json.dumps(params)
     ).json()
     if result["result"] != "OK":
         _click.echo(

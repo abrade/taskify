@@ -30,9 +30,14 @@ class Workers(object):
 
     @_view.view_config(request_method="POST")
     def post(self):
-        _log.debug("Body: %s", self.request.body)
         try:
-            data = self.request.json
+            data = _schemas.Worker().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+        try:
+            if not data:
+                data = self.request.json
             _log.debug("Data: %s", data)
         except _json.decoder.JSONDecodeError as decode_error:
             return {
