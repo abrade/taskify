@@ -14,10 +14,10 @@
     </div>
     <div class="field">
       <label>Team</label>
-      <select class="ui fluid dropdown" value={{model.script.team_id}}>
+      <select class="ui fluid dropdown" onchange={{route-action "selectTeam" value="target.value"}}>
         <option value="">Teams</option>
         {{#each model.teams as |team|}}
-        <option value="{{team.id}}">{{team.name}}</option>
+        <option value={{team.id}}>{{team.name}}</option>
         {{/each}}
       </select>
     </div>

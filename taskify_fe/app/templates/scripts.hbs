@@ -18,7 +18,7 @@
       <tr>
         <td>{{script.name}}</td>
         <td>{{script.cmd}}</td>
-        <td>{{script.default_options}}</td>
+        <td>{{#each-in script.default_options as |key value|}} {{key}}: {{value}}, {{/each-in}}</td>
         <td>{{script.status}}</td>
         <td>{{script.team.name}}</td>
       </tr>

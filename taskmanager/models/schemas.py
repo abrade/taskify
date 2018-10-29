@@ -15,7 +15,7 @@ class Team(Schema):
     name = _fields.Str()
 
     class Meta:
-        type_ = "team"
+        type_ = "teams"
         strict = True
 
 
@@ -25,7 +25,7 @@ class Worker(Schema):
     state = _fields.Str()
 
     class Meta:
-        type_ = "worker"
+        type_ = "workers"
         strict = True
 
 
@@ -35,7 +35,7 @@ class WorkerQueue(Schema):
     state = _fields.Str()
 
     class Meta:
-        type_ = "workerqueue"
+        type_ = "workerqueues"
         strict = True
 
 
@@ -57,7 +57,7 @@ class Script(Schema):
     )
 
     class Meta:
-        type_ = "script"
+        type_ = "scripts"
         strict = True
 
 
@@ -77,7 +77,7 @@ class ParentTask(Schema):
     )
 
     class Meta:
-        type_ = "task"
+        type_ = "tasks"
         strict = True
 
 
@@ -145,7 +145,7 @@ class Tasks(Schema):
     )
 
     class Meta:
-        type_ = "task"
+        type_ = "tasks"
         strict = False
 
 
