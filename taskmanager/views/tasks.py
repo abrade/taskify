@@ -216,8 +216,9 @@ class Tasks(object):
             if include_data:
                 additional["include_data"] = ("script", "worker")
             base_url = self.request.route_url("tasks")
-            next_page = page + 1 if (page + 1) < count else count
-            prev_page = page - 1 if (page - 1) > 0 else 1
+            next_page = page + 2 if (page + 2) < count else count
+            prev_page = page if page > 0 else 1
+            print(next_page, prev_page)
             return {
                 "result": _views.RESULT_OK,
                 "links": {
