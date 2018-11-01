@@ -1,43 +1,28 @@
 <div class="ui clearing segment">
-  {{log columns}}
-  {{table-grid columns=columns model=model}}
 <table class="ui small selectable table">
   <thead>
     <tr>
-      <th></th>
-      <th>ID</th>
-      <th>Title</th>
-      <th>Script</th>
-      <th>Worker</th>
-      <th>Scheduled</th>
-      <th>Run</th>
-      <th>Team</th>
-      <th>State</th>
+      {{log "c" columns}}
+      {{#each columns as |column|}}
+      {{log column}}
+      <th>{{column.name}}</th>
+      {{/each}}
     </tr>
   </thead>
   <tbody>
-{{#each model as |task|}}
-{{#link-to 'task' (query-params task=task.id) tagName="tr"}}
-  <td class="collapsing">
-    {{#if (eq task.state "FAILED")}}
-    <div class="ui small basic icon buttons">
-    <button class="ui icon button">
-      <i class="checkmark icon"></i>
-    </button>
-    </div>
-    {{/if}}
-  </td>
+{{#each model as |item|}}
+<tr {{action "goToLink" item}}>
+  {{#each columns as |column|}}
   <td>
-    <div class="ui {{task.taskColor}} tiny horizontal label">{{task.id}}</div>
+    {{log (get item column.labelColumn) }}
+  {{#if column.hasLabel}}
+  <div class="ui {{get item column.labelColumn}} tiny horizontal label">{{get item column.column}}</div>
+  {{else}}
+  {{get item column.column}}
+  {{/if}}
   </td>
-  <td>{{task.title}}</td>
-  <td>{{task.script.name}}</td>
-  <td>{{task.worker.name}}</td>
-  <td>{{task.scheduled}}</td>
-  <td>{{task.run}}</td>
-  <td>{{task.script.team.name}}</td>
-  <td>{{task.state}}</td>
-{{/link-to}}
+  {{/each}}
+</tr>
 {{/each}}
   </tbody>
   <tfoot>
