@@ -1,4 +1,3 @@
-<div class="ui clearing segment">
 <table class="ui small selectable table">
   <thead>
     <tr>
@@ -16,7 +15,7 @@
   <td>
     {{log (get item column.labelColumn) }}
   {{#if column.hasLabel}}
-  <div class="ui {{get item column.labelColumn}} tiny horizontal label">{{get item column.column}}</div>
+  <div class="ui {{get item column.columnLabel}} tiny horizontal label">{{get item column.column}}</div>
   {{else}}
   {{get item column.column}}
   {{/if}}
@@ -30,18 +29,17 @@
       <th colspan="9">
         <div class="ui right floated pagination mini menu">
           {{#if prev}}
-            {{#link-to "tasks" (query-params page=model.meta.pagination.prev.page) class="icon item"}} <i class="left chevron icon"></i> {{/link-to}}
+            {{#link-to "tasks" (query-params page=pagination.prev.page) class="icon item"}} <i class="left chevron icon"></i> {{/link-to}}
           {{else}}
-            {{#link-to "tasks" (query-params page=model.meta.pagination.prev.page) disabled='true' class="icon item"}} <i class="disabled left chevron icon"></i> {{/link-to}}
+            {{#link-to "tasks" (query-params page=pagination.prev.page) disabled='true' class="icon item"}} <i class="disabled left chevron icon"></i> {{/link-to}}
           {{/if}}
           {{#if next}}
-            {{#link-to "tasks" (query-params page=model.meta.pagination.next.page) class="icon item"}} <i class="right chevron icon"></i> {{/link-to}}
+            {{#link-to "tasks" (query-params page=pagination.next.page) class="icon item"}} <i class="right chevron icon"></i> {{/link-to}}
           {{else}}
-            {{#link-to "tasks" (query-params page=model.meta.pagination.next.page) disabled='true' class="icon item"}} <i class="disabled right chevron icon"></i> {{/link-to}}
+            {{#link-to "tasks" (query-params page=pagination.next.page) disabled='true' class="icon item"}} <i class="disabled right chevron icon"></i> {{/link-to}}
           {{/if}}
         </div>
       </th>
     </tr>
   </tfoot>
 </table>
-</div>

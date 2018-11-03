@@ -9,7 +9,6 @@ export default Controller.extend({
     'model.meta.pagination.{self,next}.page',
     function() {
       const isNext = this.get('model.meta.pagination.self.page') != this.get('model.meta.pagination.next.page');
-      console.log("NEXT", isNext, this.get('model.meta.pagination.self.page'), this.get('model.meta.pagination.next.page'));
       return isNext;
     }
   ),
@@ -17,7 +16,6 @@ export default Controller.extend({
     'model.meta.pagination.{prev,self}.page',
     function() {
       const isPrev = this.get('model.meta.pagination.self.page') != this.get('model.meta.pagination.prev.page');
-      console.log("PREV", isPrev, this.get('model.meta.pagination.self.page'), this.get('model.meta.pagination.prev.page'));
       return isPrev;
     }
   ),

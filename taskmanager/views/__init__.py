@@ -9,6 +9,7 @@ import importlib as _importlib
 
 import celery as _celery
 import celery.result as _result
+import celery.exceptions as _exceptions
 
 import psycopg2 as _psycopg2
 
@@ -40,8 +41,11 @@ if celery_app is None:
 
 
 def get_result(task_id):
-    res = _result.AsyncResult(task_id, app=celery_app)
-    return res.get()
+    res = _result.AsyncResult(task_id, app=celery_app, timeout=300)
+    try:
+        return res.get()
+    except _exceptions.TimeoutError:
+        return {}
 
 
 @celery_app.task(retry_kwargs={'max_retries': 5})
