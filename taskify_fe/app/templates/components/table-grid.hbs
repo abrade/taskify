@@ -1,9 +1,7 @@
 <table class="ui small selectable table">
   <thead>
     <tr>
-      {{log "c" columns}}
       {{#each columns as |column|}}
-      {{log column}}
       <th>{{column.name}}</th>
       {{/each}}
     </tr>
@@ -13,7 +11,6 @@
 <tr {{action "goToLink" item}}>
   {{#each columns as |column|}}
   <td>
-    {{log (get item column.labelColumn) }}
   {{#if column.hasLabel}}
   <div class="ui {{get item column.columnLabel}} tiny horizontal label">{{get item column.column}}</div>
   {{else}}

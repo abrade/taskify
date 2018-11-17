@@ -16,7 +16,7 @@
           </div>
           <div class="three wide column">
           {{#if (gt model.task.children.length 0)}}
-            {{#each model.task.children as |child_task|}} {{log "Child: " child_task}}
+            {{#each model.task.children as |child_task|}}
             {{#link-to 'task' (query-params task=child_task.id)}}
             <div class="ui label {{child_task.taskColor}}">{{child_task.id}}</div>
             {{/link-to}}
@@ -47,7 +47,7 @@
       <div class="column">
         <table class="ui small selectable celled table">
           <tbody>
-            {{#each model.logs as |task_log|}} {{log task_log.worker.id}}
+            {{#each model.logs as |task_log|}}
             <tr class="{{task_log.taskColor}}">
               <td>{{task_log.taskId}}</td>
               <td>{{task_log.worker.name}}</td>

@@ -6,7 +6,10 @@ import $ from 'jquery';
 
 export default Component.extend({
   store: inject(),
+  router: inject(),
   task: null,
+  leftSideBarOpen: true,
+  leftSideBarLockedOpen: true,
   menu: computed('params.[]', function () {
     let states = this.get('states')
     if (states == undefined) {
@@ -24,6 +27,16 @@ export default Component.extend({
       {name: "FAILED-ACKED", color: "orange", label: "Acked", count: states["FAILED-ACKED"]},
     ]
   }),
+  actions: {
+    onScript() {
+      let router = this.get('router');
+      router.transitionTo("scripts");
+    },
+    onWorker() {
+      let router = this.get('router');
+      router.transitionTo("workers");
+    }
+  },
   didReceiveAttrs() {
     this._super(...arguments);
     $.getJSON('/tasks/state').then(data => {

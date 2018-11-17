@@ -1,6 +1,7 @@
 import DS from 'ember-data';
+import DataTableSerializerMixin from 'ember-data-table/mixins/serializer';
 
-export default DS.JSONAPISerializer.extend({
+export default DS.JSONAPISerializer.extend(DataTableSerializerMixin, {
   keyForAttribute: function(key) {
     return key;
   },
@@ -9,7 +10,7 @@ export default DS.JSONAPISerializer.extend({
     return key;
   },
 
-  normalizeQueryResponse(store, clazz, payload) {
+  /* normalizeQueryResponse(store, clazz, payload) {
     const result = this._super(...arguments);
     result.meta = result.meta || {};
 
@@ -18,9 +19,9 @@ export default DS.JSONAPISerializer.extend({
     }
 
     return result;
-  },
+  }, */
 
-  createPageMeta(data) {
+  /* createPageMeta(data) {
 
     let meta = {};
 
@@ -44,6 +45,6 @@ export default DS.JSONAPISerializer.extend({
 
     return meta;
 
-  }
+  } */
 
 });

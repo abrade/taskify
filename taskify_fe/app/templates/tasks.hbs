@@ -1,11 +1,48 @@
-<div class="ui clearing segment">
-  {{log columns}}
-  {{table-grid
-      columns=columns
-      model=model
-      prev=prev
-      next=next
-      pagination=model.meta.pagination
-      redirectTo='task'
-      queryParams='task'}}
-</div>
+{{#data-table
+  content=model
+  isLoading=isLoadingModel
+  enableSizes=false
+  filter=filter
+  sort=sort
+  page=page
+  size=size
+  as |t|
+}}
+{{log model.meta}}
+  {{#t.content as |c|}}
+    {{#c.header}}
+      <th></th>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Script</th>
+      <th>Worker</th>
+      <th>Scheduled</th>
+      <th>Run</th>
+      <th>Team</th>
+    {{/c.header}}
+    {{#c.body as |row|}}
+      <td>
+        {{#if (eq row.state "STARTED")}}
+        {{#paper-icon row.taskIcon reverseSpin=true class=(get row "taskColor") }}
+          {{#paper-tooltip position="right"}}
+            {{row.state}}
+          {{/paper-tooltip}}
+        {{/paper-icon}}
+        {{else}}
+        {{#paper-icon row.taskIcon class=(get row "taskColor") }}
+          {{#paper-tooltip position="right"}}
+            {{row.state}}
+          {{/paper-tooltip}}
+        {{/paper-icon}}
+        {{/if}}
+      </td>
+      <td>{{row.id}}</td>
+      <td>{{row.title}}</td>
+      <td>{{row.script.name}}</td>
+      <td>{{row.worker.name}}</td>
+      <td>{{row.scheduled}}</td>
+      <td>{{row.run}}</td>
+      <td>{{row.script.team.name}}</td>
+    {{/c.body}}
+  {{/t.content}}
+{{/data-table}}

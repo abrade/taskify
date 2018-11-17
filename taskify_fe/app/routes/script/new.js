@@ -20,18 +20,15 @@ export default Route.extend({
       let task = this.modelFor(this.routeName);
       this.get('store')
          .findRecord('team', team_id).then(function(team) {
-            console.log(team_id);
-            console.log(team.name);
             task.script.set('team_id', team_id);
 //            task.script.set('team', team);
-
+    
          });
     },
     submit() {
       let task = this.modelFor(this.routeName);
       var self = this;
       let opt = task.script.get('default_options');
-      console.log("OPT:::", opt);
       task.script.set('default_options', JSON.parse(opt + ""));
 //      task.script.default_options = JSON.parse(task.script.default_options + "");
       task.script.save().then(function() {
