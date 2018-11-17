@@ -163,15 +163,15 @@ class Tasks(object):
     @_view.view_config(request_method="GET")
     def get_tasks(self):
         state_filter = self.request.params.get("state", "ALL")
-        page = int(self.request.params.get("page", 1))
-        max_entries = int(self.request.params.get("limit", 20))
+        page = int(self.request.params.get("page[number]", 0))
+        max_entries = int(self.request.params.get("page[size]", 20))
         script = self.request.params.getall("script")
         worker = self.request.params.getall("worker")
         team = self.request.params.get("team")
         include_data = self.request.params.get("include_data")
 
-        page = page - 1
         state_filter = get_states(state_filter)
+        _log.debug(f"Params: {self.request.params}")
         _log.debug(f"State filter: {state_filter}")
         _log.debug(f"page {page}")
         _log.debug(f"max_entries {max_entries}")
@@ -205,8 +205,10 @@ class Tasks(object):
             query = tasks.order_by(
                 _models.Task.id.desc()
             )
-            count = _math.ceil(query.count() / max_entries)
-            _log.info("Count %s", count)
+            max_elements = query.count()
+            count = _math.ceil(max_elements / max_entries)
+            _log.debug(f"Count {count}")
+            _log.debug("offset : {offset}".format(offset=page*max_entries))
             tasks = query.offset(
                 page*max_entries
             ).limit(
@@ -216,17 +218,20 @@ class Tasks(object):
             if include_data:
                 additional["include_data"] = ("script", "worker")
             base_url = self.request.route_url("tasks")
-            next_page = page + 2 if (page + 2) < count else count
-            prev_page = page if page > 0 else 1
-            print(next_page, prev_page)
+            next_page = page + 1 if (page + 1) < count else count
+            prev_page = page if page >= 0 else 0
+            base_unformat_url = "{}?page[number]={}&page[size]={}"
             return {
                 "result": _views.RESULT_OK,
+                "meta": {
+                    "count": max_elements,
+                },
                 "links": {
                     "self": self.request.url,
-                    "next": "{}?page={}&limit={}".format(base_url, next_page, max_entries),
-                    "prev": "{}?page={}&limit={}".format(base_url, prev_page, max_entries),
-                    "first": "{}?page={}&limit={}".format(base_url, 1, max_entries),
-                    "last": "{}?page={}&limit={}".format(base_url, count, max_entries),
+                    "next": base_unformat_url.format(base_url, next_page, max_entries),
+                    "previous": base_unformat_url.format(base_url, prev_page, max_entries),
+                    "first": base_unformat_url.format(base_url, 0, max_entries),
+                    "last": base_unformat_url.format(base_url, count - 1, max_entries),
                 },
                 **_schemas.Tasks(**additional).dump(tasks, many=True).data,
             }

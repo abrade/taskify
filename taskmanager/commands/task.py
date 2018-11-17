@@ -92,19 +92,22 @@ def task():
 @_click.option("--script_id", required=False, help="Filter by script id")
 @_click.option("--worker_id", required=False, help="Filter by worker id")
 @_click.option("--state", required=False, default="ALL", help="Filter by state")
-@_click.option("--limit", required=False, default=100, help="Limit Items in result")
-def list(format, team_id, script_id, worker_id, state, limit):
+@_click.option("--size", required=False, default=100, help="Limit Items in result")
+@_click.option("--page", required=False, default=0, help="Page for the result")
+def list(format, team_id, script_id, worker_id, state, size, page):
     params = ["include_data=1"]
     if team_id:
-        params.append("team="+team_id)
+        params.append(f"team={team_id}")
     if script_id:
-        params.append("script="+script_id)
+        params.append(f"script={script_id}")
     if worker_id:
-        params.append("worker="+worker_id)
+        params.append(f"worker={worker_id}")
     if state:
-        params.append("state="+state)
-    if limit:
-        params.append("limit="+str(limit))
+        params.append(f"state={state}")
+    if size:
+        params.append(f"page[size]={size}")
+    if page:
+        params.append(f"page[number]={page}")
 
     url = "{server}/tasks?{params}".format(
         params="&".join(params),
