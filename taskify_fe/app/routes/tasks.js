@@ -9,14 +9,19 @@ export default Route.extend(DataTableRouteMixin, {
     size: { refreshModel: true },
     sort: { refreshModel: true },
     state: { refreshModel: true },
-    limit: { refreshModel: true }
   },
   mergeQueryOptions(params) {
     return {
         'state': params.state,
-        'filter[worker': params.worker,
+        'filter[worker]': params.worker,
         'filter[team]': params.team
     };
+  },
+  actions: {
+    onClick(row) {
+      let router = this.get('router');
+      router.transitionTo("task", {queryParams: {task: row.id} });
+    }
   }
 /*   queryParams: {
     state: { refreshModel: true },
