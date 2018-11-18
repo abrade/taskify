@@ -1,16 +1,18 @@
-<table class="ui small table">
-  <thead>
-    <tr>
-      <th>Options:</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
+{{#paper-card as |opt-card|}}
+  {{#opt-card.header as |header|}}
+    {{#header.text as |text|}}
+      {{#text.title}}Options{{/text.title}}
+    {{/header.text}}
+  {{/opt-card.header}}
+  {{#paper-list}}
     {{#each-in options as |key value|}}
-    <tr>
-      <td>{{key}}</td>
-      <td>{{value}}</td>
-    </tr>
+    {{#paper-item}}
+    <p>{{key}}</p>
+    <div class="md-secondary-container">
+      <p>{{value}}</p>
+    </div>
+      {{paper-divider}}
+    {{/paper-item}}
     {{/each-in}}
-  </tbody>
-</table>
+  {{/paper-list}}
+{{/paper-card}}

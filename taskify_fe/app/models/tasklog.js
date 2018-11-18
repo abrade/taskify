@@ -10,13 +10,13 @@ export default DS.Model.extend({
   taskColor: computed('state', function() {
     let state = this.get('state')
     switch(state) {
-      case 'FAILED':
       case 'RETRIED':
-      case 'FAILED-ACKED': return "negative"
-      case 'SUCCEED': return "positive"
-      case 'STARTED':
-      case 'PRERUN':
-      default: return ""
+      case 'FAILED': return "red"
+      case 'FAILED-ACKED': return "orange"
+      case 'STARTED': return "olive"
+      case 'PRERUN': return "teal"
+      case 'SUCCEED': return "green"
+      default: return "gray"
     }
   })
 });

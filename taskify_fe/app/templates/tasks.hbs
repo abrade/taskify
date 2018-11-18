@@ -23,19 +23,7 @@
     {{/c.header}}
     {{#c.body as |row|}}
       <td>
-        {{#if (eq row.state "STARTED")}}
-        {{#paper-icon row.taskIcon reverseSpin=true class=(get row "taskColor") }}
-          {{#paper-tooltip position="right"}}
-            {{row.state}}
-          {{/paper-tooltip}}
-        {{/paper-icon}}
-        {{else}}
-        {{#paper-icon row.taskIcon class=(get row "taskColor") }}
-          {{#paper-tooltip position="right"}}
-            {{row.state}}
-          {{/paper-tooltip}}
-        {{/paper-icon}}
-        {{/if}}
+        {{task-icon task=row}}
       </td>
       <td>{{row.id}}</td>
       <td>{{row.title}}</td>

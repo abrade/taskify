@@ -11,6 +11,9 @@ export default Route.extend({
       { name: "Run", key: "run" },
       { name: "Scheduled by", key: "scheduledBy" },
       { name: "Locks", key: "locks" },
+      { name: "Queue", key: "worker.name" },
+      { name: "Script", key: "script.name"},
+      { name: "Command", key: "script.cmd"}
     ]
     return RSVP.hash(
       {

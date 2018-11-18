@@ -1,22 +1,18 @@
-<table class="ui small table">
-  <tbody>
-    {{#each details as |detail|}}
-    <tr>
-      <td>{{detail.name}}</td>
-      <td>{{get task detail.key}}</td>
-    </tr>
-    {{/each}}
-    <tr>
-      <td>Queue</td>
-      <td>{{task.worker.name}}</td>
-    </tr>
-    <tr>
-      <td>Script</td>
-      <td>{{task.script.name}}</td>
-    </tr>
-    <tr>
-      <td>Command</td>
-      <td>{{task.script.cmd}}</td>
-    </tr>
-  </tbody>
-</table>
+{{#paper-card as |opt-card|}}
+  {{#opt-card.header as |header|}}
+    {{#header.text as |text|}}
+      {{#text.title}}Details{{/text.title}}
+    {{/header.text}}
+  {{/opt-card.header}}
+  {{#paper-list}}
+  {{#each details as |detail|}}
+    {{#paper-item}}
+    <p>{{detail.name}}</p>
+    <div class="md-secondary-container">
+      <p>{{get task detail.key}}</p>
+    </div>
+      {{paper-divider}}
+    {{/paper-item}}
+  {{/each}}
+  {{/paper-list}}
+{{/paper-card}}
