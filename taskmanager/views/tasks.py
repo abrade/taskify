@@ -206,8 +206,6 @@ class Tasks(object):
                 _models.Task.id.desc()
             )
             max_elements = query.count()
-            count = _math.ceil(max_elements / max_entries)
-            _log.debug(f"Count {count}")
             _log.debug("offset : {offset}".format(offset=page*max_entries))
             tasks = query.offset(
                 page*max_entries
@@ -218,21 +216,17 @@ class Tasks(object):
             if include_data:
                 additional["include_data"] = ("script", "worker")
             base_url = self.request.route_url("tasks")
-            next_page = page + 1 if (page + 1) < count else count
-            prev_page = page - 1 if page - 1 >= 0 else 0
-            base_unformat_url = "{}?page[number]={}&page[size]={}"
             return {
                 "result": _views.RESULT_OK,
                 "meta": {
                     "count": max_elements,
                 },
-                "links": {
-                    "self": self.request.url,
-                    "next": base_unformat_url.format(base_url, next_page, max_entries),
-                    "prev": base_unformat_url.format(base_url, prev_page, max_entries),
-                    "first": base_unformat_url.format(base_url, 0, max_entries),
-                    "last": base_unformat_url.format(base_url, count - 1, max_entries),
-                },
+                "links": _views.create_links(
+                    base_url,
+                    page,
+                    max_entries,
+                    max_elements
+                ),
                 **_schemas.Tasks(**additional).dump(tasks, many=True).data,
             }
 

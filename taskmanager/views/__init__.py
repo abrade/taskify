@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os as _os
+import math as _math
 import configparser as _cp
 import contextlib as _ct
 import transaction as _ta
@@ -125,3 +126,17 @@ def dbsession(request):
 def get_connection(request):
     settings = request.registry.settings
     yield _psycopg2.connect(settings['sqlalchemy.url'])
+
+
+def create_links(base_url, page, max_entries, max_elements):
+    count = _math.ceil(max_elements / max_entries)
+    next_page = page + 1 if (page + 1) < count else count
+    prev_page = page - 1 if page - 1 >= 0 else 0
+    base_unformat_url = "{}?page[number]={}&page[size]={}"
+    return {
+        "self": base_unformat_url.format(base_url, page, max_elements),
+        "next": base_unformat_url.format(base_url, next_page, max_entries),
+        "prev": base_unformat_url.format(base_url, prev_page, max_entries),
+        "first": base_unformat_url.format(base_url, 0, max_entries),
+        "last": base_unformat_url.format(base_url, count - 1, max_entries),
+    }

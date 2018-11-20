@@ -1,42 +1,46 @@
 @import 'ember-paper';
 @import 'ember-paper-data-table';
 
-md-icon.md-default-theme.green {
+md-icon.md-default-theme.SUCCEED {
   color: #00FF00;
 }
 
-md-icon.md-default-theme.red {
+md-icon.md-default-theme.FAILED {
   color: #FF0000;
 }
 
-md-icon.md-default-theme.orange {
+md-icon.md-default-theme.FAILED-ACKED {
   color: #FFA500;
 }
 
-md-icon.md-default-theme.teal {
+md-icon.md-default-theme.PRERUN {
   color: #008080;
 }
 
-md-icon.md-default-theme.olive {
+md-icon.md-default-theme.STARTED {
   color: #6b8e23;
 }
 
-p.green {
+p.SUCCEED {
   color: #00FF00;
 }
 
-p.red {
+p.FAILED {
   color: #FF0000;
 }
 
-p.orange {
+p.FAILED-ACKED {
   color: #FFA500;
 }
 
-p.teal {
+p.PRERUN {
   color: #008080;
 }
 
-p.olive {
+p.STARTED {
   color: #6b8e23;
+}
+
+p.RETRIED {
+  color: rgb(112, 58, 58);
 }

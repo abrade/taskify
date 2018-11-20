@@ -6,7 +6,7 @@
 {{/paper-icon}}
 {{yield}}
 {{else}}
-{{#paper-icon task.taskIcon class=(get task "taskColor") }}
+{{#paper-icon task.taskIcon class=task.state}}
   {{#paper-tooltip position="right"}}
     {{task.state}}
   {{/paper-tooltip}}
