@@ -1,5 +1,5 @@
 {{#if (eq task.state "STARTED")}}
-{{#paper-icon task.taskIcon reverseSpin=true class=(get task "taskColor") }}
+{{#paper-icon task.taskIcon reverseSpin=true class=task.state }}
   {{#paper-tooltip position="right"}}
     {{task.state}}
   {{/paper-tooltip}}

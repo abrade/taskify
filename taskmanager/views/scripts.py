@@ -21,6 +21,8 @@ class Scripts(object):
     def get_all(self):
         team_id = self.request.params.get("team")
         include_data = self.request.params.get("include_data")
+        page = int(self.request.params.get("page[number]", 0))
+        max_entries = int(self.request.params.get("page[size]", 20))
         additional = {}
         if include_data:
             additional["include_data"] = ("team",)
@@ -33,9 +35,21 @@ class Scripts(object):
                 scripts = scripts.filter(
                     _models.Script.team_id == team_id
                 )
-            scripts = scripts.all()
+            max_elements = scripts.count()
+            scripts = scripts.offset(
+                page*max_entries
+            ).limit(
+                max_entries
+            ).all()
+            base_url = self.request.route_url("all_scripts")
             return {
                 "result": _views.RESULT_OK,
+                "links": _views.create_links(
+                    base_url,
+                    page,
+                    max_entries,
+                    max_elements
+                ),
                 **_schemas.Script(**additional).dump(scripts, many=True).data
             }
 

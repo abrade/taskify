@@ -1,28 +1,42 @@
 {{outlet}}
-<div class="ui segment">
-  <div class="ui vertical labeled icon buttons">
-  {{#link-to "script.new" tagName="button" class="ui primary button"}}<i class="add icon"></i>Add Script{{/link-to}}
-  </div>
-  <table class="ui small selectable table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Command</th>
-        <th>Options</th>
-        <th>Status</th>
-        <th>Team</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each model as |script|}}
-      <tr>
-        <td>{{script.name}}</td>
-        <td>{{script.cmd}}</td>
-        <td>{{#each-in script.default_options as |key value|}} {{key}}: {{value}}, {{/each-in}}</td>
-        <td>{{script.status}}</td>
-        <td>{{script.team.name}}</td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
-</div>
+{{#data-table
+  content=model
+  isLoading=isLoadingModel
+  enableSizes=false
+  filter=filter
+  sort=sort
+  page=page
+  size=size
+  onClickRow=(route-action "onClick")
+  as |t|
+}}
+  {{#t.menu as |menu|}}
+    {{#menu.general}}
+      {{#paper-button onClick=(route-action "addScript") primary=true raised=true}}
+        {{paper-icon "add-circle"}} Add Script
+      {{/paper-button}}        
+    {{/menu.general}}
+  {{/t.menu}}
+  {{#t.content as |c|}}
+    {{#c.header}}
+      <th>Status</th>
+      <th>Name</th>
+      <th>Command</th>
+      <th>Options</th>
+      <th>Team</th>
+    {{/c.header}}
+    {{#c.body as |row|}}
+      <td>
+        {{#paper-icon row.icon class=row.status}}
+          {{#paper-tooltip position="right"}}
+            {{row.status}}
+          {{/paper-tooltip}}
+        {{/paper-icon}}
+      </td>
+      <td>{{row.name}}</td>
+      <td>{{row.cmd}}</td>
+      <td>{{#each-in row.default_options as |key value|}} {{key}}: {{value}}, {{/each-in}}</td>
+      <td>{{row.team.name}}</td>
+    {{/c.body}}
+  {{/t.content}}
+{{/data-table}}
