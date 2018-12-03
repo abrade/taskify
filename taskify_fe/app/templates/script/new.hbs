@@ -1,3 +1,62 @@
+
+{{#paper-card as |card|}}
+  {{#paper-form onSubmit=(action "submit") as |form|}}
+    <div class="layout-row layout-align-center">
+      <div class="layout-column flex-70">
+        {{form.input label="Name" value=script_name onChange=(action (mut script_name)) required=true}}
+        {{form.input label="Command" value=cmd_name onChange=(action (mut cmd_name)) required=true}}
+      </div>
+      <div class="layout-column flex-30">
+        {{#form.select
+          options=model.teams
+          selected=team_id
+          onChange=(action (mut team_id))
+          label="Team" as |select|}}
+          {{select.name}}
+        {{/form.select}}
+        {{#form.select
+          options=model.types
+          selected=selected_type
+          onChange=(action (mut selected_type))
+          label="Type" as |select|}}
+          {{select}}
+        {{/form.select}}
+      </div>
+    </div>
+    <div class="layout-row fill">
+      <div class="layout-column flex-100">
+        {{#paper-card as |card|}}
+          {{#card.header as |title|}}
+            {{#title.text as |text|}}
+              {{#text.title}}Options{{/text.title}}
+            {{/title.text}}
+          {{/card.header}}
+          {{#each opts as |opt|}}
+          <div class="layout-row">
+            <div class="layout-column flex-50">
+              {{form.input label="Key" value=opt.key onChange=(action (mut opt.key))}}
+            </div>
+            <div class="layout-column flex-50">
+              {{form.input label="Value" value=opt.value onChange=(action (mut opt.value))}}
+            </div>
+          </div>
+          {{/each}}
+          {{#card.actions}}
+            {{#paper-button onClick=(action "addOption") primary=true raised=true}}
+              {{paper-icon "add-circle"}} Add Option
+            {{/paper-button}}
+          {{/card.actions}}
+        {{/paper-card}}
+      </div>
+    </div>
+    <div class="layout-row">
+      {{#form.submit-button raised=true primary=true}}Save{{/form.submit-button}}
+    </div>
+  {{/paper-form}}
+{{/paper-card}}
+
+
+{{!--
 <div class="ui segment">
   <form class="ui form">
     <div class="field">
@@ -24,3 +83,4 @@
     <button {{action "submit"}} class="ui button" type="submit">Save</button>
   </form>
 </div>
+--}}

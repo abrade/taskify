@@ -24,6 +24,7 @@
       <th>Command</th>
       <th>Options</th>
       <th>Team</th>
+      <th>Type</th>
     {{/c.header}}
     {{#c.body as |row|}}
       <td>
@@ -37,6 +38,7 @@
       <td>{{row.cmd}}</td>
       <td>{{#each-in row.default_options as |key value|}} {{key}}: {{value}}, {{/each-in}}</td>
       <td>{{row.team.name}}</td>
+      <td>{{row.type}}</td>
     {{/c.body}}
   {{/t.content}}
 {{/data-table}}
