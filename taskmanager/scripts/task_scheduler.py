@@ -91,42 +91,61 @@ def _handle_prerun_tasks(session_factory, config):
         ).all()
         for task in tasks:
             if not task.worker.is_active():
-                continue
-
-            if _check_parent(task):
-                depends_state = [
-                    (depend_task.id, depend_task.state)
-                    for depend_task in task.depends
-                    if depend_task.state != "SUCCEED"
-                ]
-                _log.info(
-                    "Depends {} - {}".format(
-                        depends_state,
-                        [
-                            (depend_task.id, depend_task.state)
-                            for depend_task in task.depends
-                        ],
+                _log.warning(
+                    "Queue {} is not active, can't start Task {} - {}".format(
+                        task.worker.name,
+                        task.id,
+                        task.title,
                     )
                 )
-                if not depends_state:
-                    if task.script.is_script():
-                        task_run = _start_task(task, config)
-                    elif task.script.is_function():
-                        task_run = _start_function(task, config)
+                continue
 
-                    if task.parent:
-                        log_str = "Start Task {} after parent {}".format(
+            if task.script.is_active:
+                _log.warning(
+                    "QueueScript {} is not active, can't start Task {} - {}".format(
+                        task.script.name,
+                        task.id,
+                        task.title,
+                    )
+                )
+                continue
+
+            if not _check_parent(task):
+                continue
+
+            depends_state = [
+                (depend_task.id, depend_task.state)
+                for depend_task in task.depends
+                if depend_task.state != "SUCCEED"
+            ]
+            _log.info(
+                "Depends {} - {}".format(
+                    depends_state,
+                    [
+                        (depend_task.id, depend_task.state)
+                        for depend_task in task.depends
+                    ],
+                )
+            )
+            if not depends_state:
+                if task.script.is_script():
+                    task_run = _start_task(task, config)
+                elif task.script.is_function():
+                    task_run = _start_function(task, config)
+
+                if task.parent:
+                    log_str = "Start Task {} after parent {}".format(
+                        task.id,
+                        task.parent.id,
+                    )
+                    _log.info(log_str)
+                else:
+                    _log.info(
+                        "Start Task '{}' ({})".format(
                             task.id,
-                            task.parent.id,
+                            task.script.type,
                         )
-                        _log.info(log_str)
-                    else:
-                        _log.info(
-                            "Start Task '{}' ({})".format(
-                                task.id,
-                                task.script.type,
-                            )
-                        )
+                    )
 
 
 @_click.command()

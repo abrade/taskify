@@ -130,6 +130,12 @@ class Tasks(object):
                     "error": "Couldn't find script"
                 }
 
+            if not script.is_active:
+                return {
+                    "result": _views.RESULT_ERROR,
+                    "error": "Script is not ACTIVE",
+                }
+
             if use_def_opt:
                 # update options with default options
                 def_opt = script.default_options

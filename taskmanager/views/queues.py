@@ -28,6 +28,12 @@ class WorkerQueues(object):
                 ).get(worker_id)
                 i = _views.celery_app.control.inspect([worker.name])
                 worker_queues = i.active_queues()
+                _log.info("Worker queues: {}".format(worker_queues))
+                if worker_queues is None:
+                    return {
+                        "result": _views.RESULT_OK,
+                        "data": [],
+                    }
                 if worker_queues and worker.name in worker_queues:
                     queue_names = [
                         queue["name"]
@@ -118,16 +124,23 @@ class WorkerQueue(object):
     @_view.view_config(request_method="PATCH", renderer="json")
     def update_one(self):
         worker_queue_id = self.request.matchdict.get("id")
+        data = None
         try:
-            data = self.request.json
-            _log.debug("Data: %s", data)
+            data = _schemas.WorkerQueue().load(self.request.json).data
+            _log.info(data)
+        except AttributeError:
+            data = None
+        try:
+            if not data:
+                data = self.request.json
         except _json.decoder.JSONDecodeError as decode_error:
             return {
                 "result": _views.RESULT_ERROR,
                 "error": decode_error.msg,
                 "data": None,
             }
-        queue_name = data.get("name")
+        queue_name = data.get('name')
+        state = data.get('state')
         with _views.dbsession(self.request) as session:
             queue = session.query(
                 _models.WorkerQueue
@@ -139,6 +152,7 @@ class WorkerQueue(object):
                     "data": None,
                 }
             queue.name = queue_name
+            queue.state = state
             session.commit()
             return {
                 "result": _views.RESULT_OK,

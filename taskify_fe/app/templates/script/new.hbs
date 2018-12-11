@@ -31,13 +31,16 @@
               {{#text.title}}Options{{/text.title}}
             {{/title.text}}
           {{/card.header}}
-          {{#each opts as |opt|}}
+          {{#each opts as |opt index|}}
           <div class="layout-row">
-            <div class="layout-column flex-50">
+            <div class="layout-column flex-40">
               {{form.input label="Key" value=opt.key onChange=(action (mut opt.key))}}
             </div>
-            <div class="layout-column flex-50">
+            <div class="layout-column flex-40">
               {{form.input label="Value" value=opt.value onChange=(action (mut opt.value))}}
+            </div>
+            <div class="layout-column flex-20 layout-align-center-center">
+              {{#paper-button iconButton=true onClick=(action "removeOption" index)}}{{paper-icon "remove-circle-outline"}}{{/paper-button}}
             </div>
           </div>
           {{/each}}

@@ -8,8 +8,19 @@ export default DS.Model.extend({
     let state = this.get('state')
     switch(state) {
       case 'active': return "positive"
-      case '': return "negative"
+      case 'inactive': return "negative"
       default: return ""
     }
+  }),
+  icon: computed('state', function() {
+    const state = this.get('state');
+    switch(state) {
+      case 'active': return "check_circle_outline"
+      case 'inactive': return "error"
+      default: return "help_outline"
+    }
+  }),
+  active: computed('state', function() {
+    return this.get('state') == 'active';
   })
 });

@@ -17,6 +17,7 @@ Router.map(function() {
   this.route('script', function() {
     this.route('new');
   });
+  this.route('queues');
 });
 
 export default Router;

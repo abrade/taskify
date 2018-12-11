@@ -53,6 +53,10 @@ class Script(Base):
     def is_function(self):
         return self.type == self.FUNC_TYPE
 
+    @property
+    def is_active(self):
+        return self.status == "ACTIVE"
+
 
 class Worker(Base):
     """ Worker mapper class"""

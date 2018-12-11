@@ -35,6 +35,10 @@ export default Component.extend({
     onWorker() {
       let router = this.get('router');
       router.transitionTo("workers");
+    },
+    onQueue() {
+      let router = this.get('router');
+      router.transitionTo('queues');
     }
   },
   didReceiveAttrs() {

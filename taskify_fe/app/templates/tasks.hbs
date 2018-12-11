@@ -9,9 +9,9 @@
   onClickRow=(route-action "onClick")
   as |t|
 }}
-{{log model.meta}}
   {{#t.content as |c|}}
     {{#c.header}}
+      <th></th>
       <th></th>
       <th>ID</th>
       <th>Title</th>
@@ -22,6 +22,7 @@
       <th>Team</th>
     {{/c.header}}
     {{#c.body as |row|}}
+      <td></td>
       <td>
         {{task-icon task=row}}
       </td>
