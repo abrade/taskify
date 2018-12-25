@@ -7,6 +7,9 @@ import contextlib as _ct
 import transaction as _ta
 import subprocess as _subprocess
 import importlib as _importlib
+import functools as _ft
+import collections as _collection
+import inspect as _inspect
 
 import celery as _celery
 import celery.result as _result
@@ -140,3 +143,184 @@ def create_links(base_url, page, max_entries, max_elements):
         "first": base_unformat_url.format(base_url, 0, max_entries),
         "last": base_unformat_url.format(base_url, count - 1, max_entries),
     }
+
+
+class BaseResource(object):
+    NAME = None
+
+    def __init__(self, request):
+        self.request = request
+
+    @classmethod
+    def _get_all(cls, config, func):
+        resource = func.__resource__
+        url = f'{cls.NAME}/:{resource.get("param")}'
+        name = f'{cls.NAME}/{func.__name__}'
+        config.add_route(name, url)
+        config.add_view(
+            view=cls,
+            attr=cls._METHODS['get_all'].__name__,
+            route_name=name,
+            request_method='GET',
+            renderer='json'
+        )
+
+    @classmethod
+    def _get_one(cls, config, func):
+        cls._define_route_with_param(config, func, 'GET')
+
+    @classmethod
+    def _patch_one(cls, config, func):
+        cls._define_route_with_param(config, func, 'PATCH')
+
+    @classmethod
+    def _delete_one(cls, config, func):
+        cls._define_route_with_param(config, func, 'DELETE')
+
+    @classmethod
+    def _define_route_with_param(cls, config, func, req_method):
+        resource = func.__resource__
+        url = f'{cls.NAME}/:{resource.get("param")}'
+        name = f'{cls.NAME}/{func.__name__}'
+        config.add_route(name, url)
+        config.add_view(
+            view=cls,
+            attr=func.__name__,
+            route_name=name,
+            request_method=req_method,
+            renderer='json'
+        )
+
+    @classmethod
+    def init_handler(cls, config):
+        # route_name = "{base_route}:id".format(base_route=cls.base_route)
+        # config.add_view(view=cls, attr='get_one', route_name=route_name, request_method="GET", renderer="json")
+        configs = {
+            'get_all': cls._get_all,
+            'get_one': cls._get_one,
+        }
+        for name, method in cls.__dict__.items():
+            if not hasattr(method, "__resource__"):
+                continue
+            resource = method.__resource__
+            handler = configs[resource['type']]
+            handler(config, method)
+
+
+def _wrap_func(func):
+    if func.__resource__.get('wrapped'):
+        return func
+
+    @_ft.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # get params
+        # load the data
+        # need request
+        resource = func.__resource__
+        req = self.request
+        params = req.matchdict
+        kwargs.update(params)
+        input_schema = resource.get('input_model')
+        output_schema = resource.get('output_model')
+        if input_schema:
+            input_data = req.json
+            input_data = input_schema().load(input_data).data
+            kwargs.update({'post_data': input_data})
+        data = func(self, *args, **kwargs)
+        if data is None:
+            return {
+                "result": RESULT_NOTFOUND,
+                "error": "Couldn't find object",
+                "data": None,
+            }
+        print(f"Output schema {output_schema}")
+        many = False
+        if isinstance(data, _collection.Iterable):
+            many = True
+        if output_schema:
+            data = output_schema(many=many).dump(data).data
+        return {
+            "result": RESULT_OK,
+            **data,
+        }
+    func.__resource__['wrapped'] = True
+    return wrapper
+
+
+def get_all(description=None):
+    """ decorater for get all """
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('description', description)
+        func.__resource__.setdefault('type', 'get_all')
+        return _wrap_func(func)
+    return wrapper
+
+
+def get_one(description=None, param=None):
+    """ decorater for get one """
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('description', description)
+        func.__resource__.setdefault('param', param)
+        func.__resource__.setdefault('type', 'get_one')
+
+        return _wrap_func(func)
+    return wrapper
+
+
+def post_one(description=None):
+    """ decorater for post """
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('description', description)
+        func.__resource__.setdefault('type', 'post_one')
+
+        return _wrap_func(func)
+    return wrapper
+
+
+def patch_one(description=None, param=None):
+    """ decorater for post """
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('description', description)
+        func.__resource__.setdefault('param', param)
+        func.__resource__.setdefault('type', 'patch_one')
+
+        return _wrap_func(func)
+    return wrapper
+
+
+def delete_one(description=None, param=None):
+    """ decorater for delete """
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('description', description)
+        func.__resource__.setdefault('param', param)
+        func.__resource__.setdefault('type', 'delete_one')
+
+        return _wrap_func(func)
+    return wrapper
+
+
+def with_model(input_model=None, output_model=None):
+    """ decorater for input model"""
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('input_model', input_model)
+        func.__resource__.setdefault('output_model', output_model)
+
+        return _wrap_func(func)
+    return wrapper
+
+
+def with_return(http_code=200, description=None):
+    """ decorater for input model"""
+    def wrapper(func):
+        func.__resource__ = func.__dict__.get('__resource__', {})
+        func.__resource__.setdefault('return_codes', [])
+        func.__resource__['return_codes'].append((http_code, description))
+
+        return _wrap_func(func)
+    return wrapper
