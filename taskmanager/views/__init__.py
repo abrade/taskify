@@ -28,6 +28,14 @@ RESULT_OK = "OK"
 RESULT_ERROR = "ERROR"
 RESULT_NOTFOUND = "NOT_FOUND"
 
+
+class RestAPIException(Exception):
+    def __init__(self, message, error_type=RESULT_ERROR):
+        super().__init__(message)
+        self.error_type = error_type
+        self.message = message
+
+
 celery_app = None
 
 if celery_app is None:
@@ -153,21 +161,15 @@ class BaseResource(object):
 
     @classmethod
     def _get_all(cls, config, func):
-        resource = func.__resource__
-        url = f'{cls.NAME}/:{resource.get("param")}'
-        name = f'{cls.NAME}/{func.__name__}'
-        config.add_route(name, url)
-        config.add_view(
-            view=cls,
-            attr=cls._METHODS['get_all'].__name__,
-            route_name=name,
-            request_method='GET',
-            renderer='json'
-        )
+        cls._define_route(config, func, 'GET')
 
     @classmethod
     def _get_one(cls, config, func):
         cls._define_route_with_param(config, func, 'GET')
+
+    @classmethod
+    def _post_one(cls, config, func):
+        cls._define_route(config, func, 'POST')
 
     @classmethod
     def _patch_one(cls, config, func):
@@ -178,11 +180,29 @@ class BaseResource(object):
         cls._define_route_with_param(config, func, 'DELETE')
 
     @classmethod
+    def _define_route(cls, config, func, req_method):
+        resource = func.__resource__
+        url = f'/{cls.NAME}'
+        name = f'{cls.NAME}/{func.__name__}/{req_method}'
+        resource['name'] = name
+        print(f"Adding {url} for {name} and {req_method}")
+        config.add_route(name, url, request_method=req_method)
+        config.add_view(
+            view=cls,
+            attr=func.__name__,
+            route_name=name,
+            request_method=req_method,
+            renderer='json'
+        )
+
+    @classmethod
     def _define_route_with_param(cls, config, func, req_method):
         resource = func.__resource__
-        url = f'{cls.NAME}/:{resource.get("param")}'
-        name = f'{cls.NAME}/{func.__name__}'
-        config.add_route(name, url)
+        url = f'/{cls.NAME}/{{{resource.get("param")}}}'
+        name = f'{cls.NAME}/{func.__name__}/{req_method}'
+        resource['name'] = name
+        print(f"Adding {url} for {name} and {req_method}")
+        config.add_route(name, url, request_method=req_method)
         config.add_view(
             view=cls,
             attr=func.__name__,
@@ -198,6 +218,9 @@ class BaseResource(object):
         configs = {
             'get_all': cls._get_all,
             'get_one': cls._get_one,
+            'post_one': cls._post_one,
+            'patch_one': cls._patch_one,
+            'delete_one': cls._delete_one,
         }
         for name, method in cls.__dict__.items():
             if not hasattr(method, "__resource__"):
@@ -218,31 +241,67 @@ def _wrap_func(func):
         # need request
         resource = func.__resource__
         req = self.request
-        params = req.matchdict
-        kwargs.update(params)
+        kwargs.update(req.matchdict)
+        include_data = False
+        for key, value in req.params.items():
+            if not value:
+                continue
+            if key == "page[number]":
+                kwargs["page"] = int(value)
+            elif key == "page[size]":
+                kwargs["size"] = int(value)
+            elif key == 'include_data':
+                include_data = True
+                continue
+            else:
+                kwargs[key] = value
         input_schema = resource.get('input_model')
         output_schema = resource.get('output_model')
+
         if input_schema:
             input_data = req.json
             input_data = input_schema().load(input_data).data
             kwargs.update({'post_data': input_data})
-        data = func(self, *args, **kwargs)
+        try:
+            print(dict(req.params))
+            data = func(self, *args, **kwargs)
+        except RestAPIException as ex:
+            return {
+                "result": ex.error_type,
+                "error": ex.message,
+                "data": None,
+            }
         if data is None:
             return {
                 "result": RESULT_NOTFOUND,
                 "error": "Couldn't find object",
                 "data": None,
             }
-        print(f"Output schema {output_schema}")
-        many = False
-        if isinstance(data, _collection.Iterable):
-            many = True
-        if output_schema:
-            data = output_schema(many=many).dump(data).data
-        return {
+        with_links = resource.get('with_links')
+        result = {
             "result": RESULT_OK,
-            **data,
         }
+        if with_links:
+            meta = data['meta']
+            data = data['data']
+            result["meta"] = {"count": meta["max_elements"]}
+            result["links"] = create_links(
+                req.route_url(resource.get("name")),
+                **meta,
+            )
+
+        attr = {'many': False}
+        if isinstance(data, _collection.Iterable):
+            attr['many'] = True
+        if include_data:
+            attr['include_data'] = resource.get('include')
+
+        if output_schema:
+            data = output_schema(**attr).dump(data).data
+
+        result.update(data)
+        return result
+
     func.__resource__['wrapped'] = True
     return wrapper
 
@@ -304,12 +363,21 @@ def delete_one(description=None, param=None):
     return wrapper
 
 
-def with_model(input_model=None, output_model=None):
+def with_model(model=None, input_model=None, output_model=None, include=None):
     """ decorater for input model"""
+    if model and (input_model or output_model):
+        raise ValueError("""Model and input or output model are defined.
+Model defines in- and output model. If you need to specify different input and output models, use input_model and output_model.
+""")
     def wrapper(func):
         func.__resource__ = func.__dict__.get('__resource__', {})
-        func.__resource__.setdefault('input_model', input_model)
-        func.__resource__.setdefault('output_model', output_model)
+        in_model = input_model
+        out_model = output_model
+        if model:
+            in_model = out_model = model
+        func.__resource__.setdefault('input_model', in_model)
+        func.__resource__.setdefault('output_model', out_model)
+        func.__resource__.setdefault('include', include)
 
         return _wrap_func(func)
     return wrapper
@@ -324,3 +392,9 @@ def with_return(http_code=200, description=None):
 
         return _wrap_func(func)
     return wrapper
+
+
+def with_links(func):
+    func.__resource__ = func.__dict__.get('__resource__', {})
+    func.__resource__.setdefault('with_links', True)
+    return _wrap_func(func)

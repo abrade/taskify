@@ -68,12 +68,13 @@ def add(name):
 @_click.argument("worker")
 def update(worker_id, worker):
     cfg = get_config()
+    params = _schema.Worker().dump({"name": worker}).data
     result = _requests.patch(
         "{server}/workers/{worker_id}".format(
             worker_id=worker_id,
             **cfg,
         ),
-        data=_json.dumps({"name": worker})
+        data=_json.dumps(params)
     ).json()
     if result["result"] != "OK":
         _click.echo("Error while updating worker: {error}".format(**result))

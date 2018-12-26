@@ -26,7 +26,7 @@ class Script(Base):
     name = _sa.Column(_sa.Text, index=True)
     cmd = _sa.Column(_sa.Text, index=True)
     team_id = _sa.Column(_sa.Integer, _sa.ForeignKey('teams.id'), index=True)
-    team = _orm.relationship('Team', backref='scripts')
+    team = _orm.relationship('Team', backref='scripts', lazy="joined")
     status = _sa.Column(_sa.Text)
     type = _sa.Column(_sa.Text, server_default=SCRIPT_TYPE)
     default_options = _sa.Column(_sa.JSON())
@@ -146,13 +146,14 @@ class Task(Base):
         index=True
     )
 
-    script = _orm.relationship('Script', backref='tasks')
-    worker = _orm.relationship('WorkerQueue', backref='tasks')
+    script = _orm.relationship('Script', backref='tasks', lazy="joined")
+    worker = _orm.relationship('WorkerQueue', backref='tasks', lazy="joined")
     parent = _orm.relationship(
         'Task',
         foreign_keys=parent_id,
         backref='children',
-        remote_side='Task.id'
+        remote_side='Task.id',
+        lazy="joined",
     )
 
     depends = _orm.relationship(
@@ -160,12 +161,14 @@ class Task(Base):
         secondary=association_table,
         primaryjoin=id == association_table.c.task_id,
         secondaryjoin=id == association_table.c.depend_id,
+        lazy="joined",
         #        backref='depending'
     )
     logs = _orm.relationship(
         'TaskLog',
         # backref='logs',
         back_populates='task',
+        lazy="joined",
     )
 
     def __init__(
@@ -215,10 +218,12 @@ class TaskLog(Base):
         'Task',
         # backref='logs',
         back_populates='logs',
+        lazy="joined",
     )
     worker = _orm.relationship(
         "Worker",
         backref="task_runs",
+        lazy="joined",
     )
 
     def __init__(self, task_id, run, state, worker_id):

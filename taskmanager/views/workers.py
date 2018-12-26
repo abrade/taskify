@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging as _logging
-import json as _json
-
-import pyramid.view as _view
 
 import taskmanager.views as _views
 import taskmanager.models as _models
@@ -12,127 +9,93 @@ import taskmanager.models.schemas as _schemas
 _log = _logging.getLogger(__name__)
 
 
-@_view.view_defaults(route_name="all_workers", renderer="json")
-class Workers(object):
-    def __init__(self, request):
-        self.request = request
+class Workers(_views.BaseResource):
+    NAME = "workers"
 
-    @_view.view_config(request_method="GET")
-    def get(self):
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.Worker)
+    @_views.with_links
+    def get(self, include_data=None, page=0, max_entries=20):
         with _views.dbsession(self.request) as session:
             workers = session.query(
                 _models.Worker
+            )
+            max_elements = workers.count()
+            workers = workers.offset(
+                page*max_entries
+            ).limit(
+                max_entries
             ).all()
             return {
-                "result": _views.RESULT_OK,
-                **_schemas.Worker(many=True).dump(workers).data,
+                'meta': {
+                    'page': page,
+                    'max_entries': max_entries,
+                    'max_elements': max_elements,
+                },
+                'data': workers,
             }
 
-    @_view.view_config(request_method="POST")
-    def post(self):
-        try:
-            data = _schemas.Worker().load(self.request.json).data
-            _log.info(data)
-        except AttributeError:
-            data = None
-        try:
-            if not data:
-                data = self.request.json
-            _log.debug("Data: %s", data)
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        worker_name = data.get("name")
+    @_views.post_one()
+    @_views.with_model(model=_schemas.Worker)
+    def post(self, post_data):
+        worker_name = post_data.get("name")
         if worker_name is None:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": "No name is given",
-                "data": None,
-            }
+            raise _views.RestAPIException(
+                "No name is given",
+                _views.RESULT_ERROR,
+            )
         with _views.dbsession(self.request) as session:
             worker = _models.Worker(worker_name, "OFFLINE")
             session.add(worker)
             session.commit()
             session.refresh(worker)
 
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Worker().dump(worker).data,
-            }
+            return worker
 
-
-@_view.view_defaults(route_name="specific_worker", renderer="json")
-class Worker(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(request_method="GET")
-    def get_one(self):
-        worker_id = self.request.matchdict.get("id")
+    @_views.get_one(param="worker_id")
+    @_views.with_model(output_model=_schemas.Worker)
+    def get_one(self, worker_id):
         with _views.dbsession(self.request) as session:
             worker = session.query(
                 _models.Worker
             ).get(worker_id)
             if worker is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {worker_id} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Worker().dump(worker).data,
-            }
+                raise _views.RestAPIException(
+                    f"Worker with id {worker_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            return worker
 
-    @_view.view_config(request_method="PATCH")
-    def update_one(self):
-        worker_id = self.request.matchdict.get("id")
-        try:
-            data = self.request.json
-            _log.debug("Data: %s", data)
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        worker_name = data.get("name")
+    @_views.patch_one(param="worker_id")
+    @_views.with_model(model=_schemas.Worker)
+    def update_one(self, worker_id, post_data):
+        worker_name = post_data.get("name")
         with _views.dbsession(self.request) as session:
             worker = session.query(
                 _models.Worker
             ).get(worker_id)
             if worker is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {worker_id} not found",
-                    "data": None,
-                }
+                raise _views.RestAPIException(
+                    f"Worker with id {worker_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
             worker.name = worker_name
             session.commit()
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Worker().dump(worker).data,
-            }
+            session.refresh(worker)
+            return worker
 
 
-@_view.view_defaults(route_name="worker_opt", renderer="json")
-class WorkerOption(object):
-    def __init__(self, request):
-        self.request = request
+class WorkerOption(_views.BaseResource):
+    NAME = "workeroptions"
 
-    @_view.view_config(request_method="GET")
-    def get_option(self):
-        worker_id = self.request.params.get("worker_id")
+    @_views.get_one(param="worker_id")
+    def get_option(self, worker_id):
         with _views.dbsession(self.request) as session:
             if not worker_id:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {worker_id} not found",
-                    "data": None,
-                }
+                raise _views.RestAPIException(
+                    f"Missing worker id",
+                    _views.RESULT_ERROR,
+                )
             worker = session.query(
                 _models.Worker
             ).get(worker_id)
@@ -151,13 +114,9 @@ class WorkerOption(object):
                         "statistics": stats["rusage"],
                     }
                 )
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.WorkerOptions().dump(options).data,
-            }
+            return options
 
 
 def includeme(config):
-    config.add_route("all_workers", "/workers")
-    config.add_route("specific_worker", "/workers/:id")
-    config.add_route("worker_opt", "/workeroptions")
+    Workers.init_handler(config)
+    WorkerOption.init_handler(config)

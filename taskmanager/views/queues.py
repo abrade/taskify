@@ -12,14 +12,12 @@ import taskmanager.models.schemas as _schemas
 _log = _logging.getLogger(__name__)
 
 
-@_view.view_defaults(route_name="all_queues")
-class WorkerQueues(object):
-    def __init__(self, request):
-        self.request = request
+class WorkerQueues(_views.BaseResource):
+    NAME = "workerqueues"
 
-    @_view.view_config(request_method="GET", renderer="json")
-    def get_all(self):
-        worker_id = self.request.params.get("worker_id")
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.WorkerQueue)
+    def get_all(self, worker_id=None):
         queue_names = None
         with _views.dbsession(self.request) as session:
             if worker_id:
@@ -30,10 +28,10 @@ class WorkerQueues(object):
                 worker_queues = i.active_queues()
                 _log.info("Worker queues: {}".format(worker_queues))
                 if worker_queues is None:
-                    return {
-                        "result": _views.RESULT_OK,
-                        "data": [],
-                    }
+                    raise _views.RestAPIException(
+                        "No worker_queues found",
+                        _views.RESULT_NOTFOUND,
+                    )
                 if worker_queues and worker.name in worker_queues:
                     queue_names = [
                         queue["name"]
@@ -49,115 +47,58 @@ class WorkerQueues(object):
                 )
 
             queues = queues.all()
-            queues = _schemas.WorkerQueue(
-                many=True
-            ).dump(
-                queues
-            )
-            _log.info(queues)
-            return {
-                "result": _views.RESULT_OK,
-                **queues.data,
-            }
+            return queues
 
-    @_view.view_config(request_method="POST", renderer="json")
-    def post(self):
-        # worker_name = self.request.params.get("name")
-        _log.debug("Body: %s", self.request.body)
-        data = None
-        try:
-            data = _schemas.WorkerQueue().load(self.request.json).data
-            _log.info(data)
-        except AttributeError:
-            data = None
-        try:
-            if not data:
-                data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        queue_name = data.get("name")
+    @_views.post_one()
+    @_views.with_model(model=_schemas.WorkerQueue)
+    def post(self, post_data):
+        queue_name = post_data.get("name")
         if queue_name is None:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": "No name is given",
-                "data": None,
-            }
+            raise _views.RestAPIException(
+                "No name is given",
+                _views.RESULT_ERROR,
+            )
         with _views.dbsession(self.request) as session:
             queue = _models.WorkerQueue(queue_name, "inaktive")
             session.add(queue)
             session.commit()
             session.refresh(queue)
 
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.WorkerQueue().dump(queue).data,
-            }
+            return queue
 
-
-@_view.view_defaults(route_name="specific_queue")
-class WorkerQueue(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(request_method="GET", renderer="json")
-    def get_one(self):
-        worker_queue_id = self.request.matchdict.get("id")
+    @_views.get_one(param="worker_queue_id")
+    @_views.with_model(output_model=_schemas.WorkerQueue)
+    def get_one(self, worker_queue_id):
         with _views.dbsession(self.request) as session:
             queue = session.query(
                 _models.WorkerQueue
             ).get(worker_queue_id)
             if queue is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {worker_queue_id} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.WorkerQueue().dump(queue).data,
-            }
+                raise _views.RestAPIException(
+                    f"Worker with id {worker_queue_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
+            return queue
 
-    @_view.view_config(request_method="PATCH", renderer="json")
-    def update_one(self):
-        worker_queue_id = self.request.matchdict.get("id")
-        data = None
-        try:
-            data = _schemas.WorkerQueue().load(self.request.json).data
-            _log.info(data)
-        except AttributeError:
-            data = None
-        try:
-            if not data:
-                data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        queue_name = data.get('name')
-        state = data.get('state')
+    @_views.patch_one(param="worker_queue_id")
+    @_views.with_model(model=_schemas.WorkerQueue)
+    def update_one(self, worker_queue_id, post_data):
+        queue_name = post_data.get('name')
+        state = post_data.get('state')
         with _views.dbsession(self.request) as session:
             queue = session.query(
                 _models.WorkerQueue
             ).get(worker_queue_id)
             if queue is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {worker_queue_id} not found",
-                    "data": None,
-                }
+                raise _views.RestAPIException(
+                    f"Worker with id {worker_queue_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
             queue.name = queue_name
             queue.state = state
             session.commit()
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.WorkerQueue().dump(queue).data,
-            }
+            session.refresh(queue)
+            return queue
 
 
 @_view.view_defaults(route_name="name_queue")
@@ -186,6 +127,5 @@ class WorkerNameQueue(object):
 
 
 def includeme(config):
-    config.add_route("all_queues", "/workerqueues")
-    config.add_route("specific_queue", "/workerqueues/:id")
+    WorkerQueues.init_handler(config)
     config.add_route("name_queue", "/workerqueues/name/:name")

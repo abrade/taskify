@@ -12,158 +12,121 @@ import taskmanager.models.schemas as _schemas
 _log = _logging.getLogger(__name__)
 
 
-@_view.view_defaults(route_name="all_teams", renderer="json")
-class Teams(object):
-    def __init__(self, request):
-        self.request = request
+class Teams(_views.BaseResource):
+    NAME = "teams"
 
-    @_view.view_config(request_method="GET")
-    def get_all(self):
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.Team)
+    @_views.with_links
+    def get_all(self, page=0, max_entries=20):
         with _views.dbsession(self.request) as session:
             teams = session.query(
                 _models.Team
+            )
+            max_elements = teams.count()
+            teams = teams.offset(
+                page*max_entries
+            ).limit(
+                max_entries
             ).all()
             return {
-                "result": _views.RESULT_OK,
-                **_schemas.Team(many=True).dump(teams).data,
+                'meta': {
+                    'page': page,
+                    'max_entries': max_entries,
+                    'max_elements': max_elements,
+                },
+                'data': teams,
             }
 
-    @_view.view_config(request_method="POST")
-    def post_team(self):
-        try:
-            data = _schemas.Team().load(self.request.json).data
-            _log.info(data)
-        except AttributeError:
-            data = None
-        try:
-            if not data:
-                data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        team_name = data.get("name")
+    @_views.post_one()
+    @_views.with_model(model=_schemas.Team)
+    def post_team(self, post_data):
+        team_name = post_data.get("name")
         if team_name is None:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": "No team name is given",
-                "data": None,
-            }
+            raise _views.RestAPIException(
+                "Not team name is given",
+                _views.RESULT_ERROR,
+            )
         with _views.dbsession(self.request) as session:
             team = _models.Team(team_name)
             session.add(team)
             session.commit()
             session.refresh(team)
 
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Team().dump(team).data
-            }
+            return team
 
-
-@_view.view_defaults(route_name="specific_team", renderer="json")
-class Team(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(request_method="GET")
-    def get_one(self):
-        team_id = self.request.matchdict.get("id")
+    @_views.get_one(param='team_id')
+    @_views.with_model(output_model=_schemas.Team)
+    def get_one(self, team_id):
         with _views.dbsession(self.request) as session:
             team = session.query(
                 _models.Team
             ).get(team_id)
             if team is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Team with id {team_id} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Team().dump(team).data,
-            }
+                raise _views.RestAPIException(
+                    f"Team with id {team_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
+            return team
 
-    @_view.view_config(request_method=["PUT", "PATCH"])
-    def update_team(self):
-        team_id = self.request.matchdict.get("id")
-        try:
-            data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": _views.RESULT_ERROR,
-                "error": decode_error.msg,
-                "data": None,
-            }
-        team_name = data.get("name")
+    @_views.patch_one(param="team_id")
+    @_views.with_model(model=_schemas.Team)
+    def update_team(self, team_id, post_data):
+        team_name = post_data.get("name")
         with _views.dbsession(self.request) as session:
             team = session.query(
                 _models.Team
             ).get(team_id)
             if team is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Team with id {team_id} not found",
-                    "data": None,
-                }
+                raise _views.RestAPIException(
+                    f"Team with id {team_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
             if team_name:
                 team.name = team_name
 
             session.commit()
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Team().dump(team).data,
-            }
+            return team
 
-    @_view.view_config(request_method="DELETE")
-    def delete_team(self):
-        team_id = self.request.matchdict.get("id")
+    @_views.delete_one(param="team_id")
+    @_views.with_model(output_model=_schemas.Team)
+    def delete_team(self, team_id):
         with _views.dbsession(self.request) as session:
             team = session.query(
                 _models.Team
             ).get(team_id)
             if team is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Team with id {team_id} not found",
-                    "data": None,
-                }
+                raise _views.RestAPIException(
+                    f"Team with id {team_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
 
             session.delete(team)
             session.commit()
-            return {
-                "result": _views.RESULT_OK,
-                "data": None,
-            }
+            return team
 
 
-@_view.view_defaults(route_name="name_team", renderer="json")
-class TeamName(object):
-    def __init__(self, request):
-        self.request = request
+class TeamName(_views.BaseResource):
+    NAME = "teams/name"
 
-    @_view.view_config(request_method="GET")
-    def get_one(self):
-        team_name = self.request.matchdict.get("name")
+    @_views.get_one(param="name")
+    def get_one(self, name):
+        team_name = name
         with _views.dbsession(self.request) as session:
             team = session.query(
                 _models.Team
             ).filter_by(name=team_name).all()
             if team is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Team with id {team_name} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Team().dump(team[0]).data,
-            }
+                raise _views.RestAPIException(
+                    f"Team with id {team_name} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            return team[0]
 
 
 def includeme(config):
-    config.add_route("all_teams", "/teams")
-    config.add_route("specific_team", "/teams/:id")
-    config.add_route("name_team", "/teams/name/:name")
+    Teams.init_handler(config)
+    TeamName.init_handler(config)
+    # config.add_route("all_teams", "/teams")
+    # config.add_route("specific_team", "/teams/:id")
+    # config.add_route("name_team", "/teams/name/:name")

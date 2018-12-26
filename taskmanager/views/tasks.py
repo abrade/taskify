@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import json as _json
 import logging as _logging
-import math as _math
 
 import pyramid.view as _view
+import sqlalchemy.orm as _sa
 
 import taskmanager.views as _views
 import taskmanager.models as _models
@@ -83,26 +82,13 @@ def get_states(state_filter):
     return lookup.get(state_filter, [state_filter])
 
 
-@_view.view_defaults(route_name="tasks", renderer="json")
-class Tasks(object):
-    def __init__(self, request):
-        self.request = request
+class Tasks(_views.BaseResource):
+    NAME = "tasks"
 
-    @_view.view_config(request_method="POST")
-    def post_task(self):
-        try:
-            data = _schemas.Tasks().load(self.request.json).data
-            _log.info(data)
-        except AttributeError:
-            data = None
-        try:
-            if not data:
-                data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": "error",
-                "error": decode_error.msg
-            }
+    @_views.post_one()
+    @_views.with_model(model=_schemas.Tasks, include=("",))
+    def post_task(self, post_data):
+        data = post_data
         _log.info("Data: {}".format(data))
         title = data.get("title")
         worker_id = data.get("worker")
@@ -118,23 +104,23 @@ class Tasks(object):
             # request.registry.settings.get('use_default_worker', False)
             worker = get_worker(worker_id, session)
             if not worker:
-                return {
-                    "result": _views.RESULT_ERROR,
-                    "error": "Couldn't find worker"
-                }
+                raise _views.RestAPIException(
+                    "Couldn't find worker",
+                    _views.RESULT_ERROR
+                )
 
             script = get_script_by_id(script_id, session)
             if not script:
-                return {
-                    "result": _views.RESULT_ERROR,
-                    "error": "Couldn't find script"
-                }
+                raise _views.RestAPIException(
+                    "Couldn't find script",
+                    _views.RESULT_ERROR,
+                )
 
             if not script.is_active:
-                return {
-                    "result": _views.RESULT_ERROR,
-                    "error": "Script is not ACTIVE",
-                }
+                raise _views.RestAPIException(
+                    "Script is not ACTIVE",
+                    _views.RESULT_ERROR,
+                )
 
             if use_def_opt:
                 # update options with default options
@@ -160,23 +146,21 @@ class Tasks(object):
                 session.add(task_depend)
             session.commit()
 
-            return {
-                "result": _views.RESULT_OK,
-                "id": task.id,
-                **_schemas.Tasks().dump(task).data
-            }
+            return task
 
-    @_view.view_config(request_method="GET")
-    def get_tasks(self):
-        state_filter = self.request.params.get("state", "ALL")
-        page = int(self.request.params.get("page[number]", 0))
-        max_entries = int(self.request.params.get("page[size]", 20))
-        script = self.request.params.getall("script")
-        worker = self.request.params.getall("worker")
-        team = self.request.params.get("team")
-        include_data = self.request.params.get("include_data")
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker",))
+    @_views.with_links
+    def get_tasks(self, state="ALL", page=0, size=20, script=None, worker=None, team=None, include_data=None):
+        # state_filter = self.request.params.get("state", "ALL")
+        # page = int(self.request.params.get("page[number]", 0))
+        # max_entries = int(self.request.params.get("page[size]", 20))
+        max_entries = int(size)
+        # script = self.request.params.getall("script")
+        # worker = self.request.params.getall("worker")
+        # team = self.request.params.get("team")
 
-        state_filter = get_states(state_filter)
+        state_filter = get_states(state)
         _log.debug(f"Params: {self.request.params}")
         _log.debug(f"State filter: {state_filter}")
         _log.debug(f"page {page}")
@@ -217,26 +201,145 @@ class Tasks(object):
                 page*max_entries
             ).limit(
                 max_entries
-            ).all()
-            additional = {}
-            if include_data:
-                additional["include_data"] = ("script", "worker")
-            base_url = self.request.route_url("tasks")
+            ).options(_sa.joinedload('*')).all()
+            # TODO: Hack
+            _schemas.Tasks(many=True).dumps(tasks)
             return {
-                "result": _views.RESULT_OK,
-                "meta": {
-                    "count": max_elements,
+                'meta': {
+                    'page': page,
+                    'max_entries': max_entries,
+                    'max_elements': max_elements,
                 },
-                "links": _views.create_links(
-                    base_url,
-                    page,
-                    max_entries,
-                    max_elements
-                ),
-                **_schemas.Tasks(**additional).dump(tasks, many=True).data,
+                'data': tasks,
             }
 
-    @_view.view_config(route_name="tasks_state", request_method="GET")
+    @_views.get_one(param="task_id")
+    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker",))
+    def get_one(self, task_id, include_data=None):
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            # TODO: Hack
+            _schemas.Tasks().dumps(task)
+            return task
+
+    @_views.patch_one(param="task_id")
+    @_views.with_model(model=_schemas.Tasks, include=("script", "worker",))
+    def update_task(self, task_id, post_data, include_data=None):
+        data = post_data
+        worker_id = data.get("worker")
+        script_id = data.get("script")
+        options = data.get("options")
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            if worker_id:
+                task.worker_id = worker_id
+            if script_id:
+                task.script_id = script_id
+            if options:
+                task.options.update(options)
+
+            session.commit()
+
+            return task
+
+    @_views.delete_one(param="task_id")
+    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker",))
+    def delete_task(self, task_id, include_data=None):
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+
+            task.state = "DELETED"
+            session.commit()
+
+            return task
+
+
+class TaskLogs(_views.BaseResource):
+    NAME = "tasklogs"
+
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.TaskLog, include=("worker",))
+    def get_task_log(self, task=None):
+        with _views.dbsession(self.request) as session:
+            task_logs = session.query(
+                _models.TaskLog
+            ).filter(
+                _models.TaskLog.task_id == task
+            ).all()
+            for log in task_logs:
+                print("task_logs: {} {} {}".format(
+                    log.task_id, log.run, log.state))
+            return task_logs
+
+
+class TaskChildren(_views.BaseResource):
+    NAME = "tasks/{task_id}/children"
+
+    @_views.get_one()
+    @_views.with_model(output_model=Tasks, include=("worker", "script"))
+    def get_children(self, task_id):
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
+            return task
+
+
+class TaskResult(_views.BaseResource):
+    NAME = "tasks/{task_id}/result"
+
+    @_views.get_all()
+    def task_result(self, task_id):
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            result = _views.get_result(str(task.id))
+            return {
+                "result": _views.RESULT_OK,
+                "data": {
+                    "return_code": result[0],
+                    "stdout": result[1],
+                    "stderr": result[2],
+                }
+            }
+
+
+class TaskState(_views.BaseResource):
+    NAME = "tasks/state"
+
+    @_views.get_all()
     def tasks_state(self):
         with _views.get_connection(self.request) as connection:
             stmt = """
@@ -274,173 +377,8 @@ class Tasks(object):
             }
 
 
-@_view.view_defaults(route_name="specific_task", renderer="json")
-class Task(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(request_method="GET")
-    def get_one(self):
-        task_id = self.request.matchdict.get("id")
-        with _views.dbsession(self.request) as session:
-            task = session.query(
-                _models.Task
-            ).get(task_id)
-            if task is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Task with id {task_id} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Tasks().dump(task).data,
-            }
-
-    @_view.view_config(request_method="PATCH")
-    def update_task(self):
-        task_id = self.request.matchdict.get("id")
-        try:
-            data = self.request.json
-        except _json.decoder.JSONDecodeError as decode_error:
-            return {
-                "result": "error",
-                "error": decode_error.msg
-            }
-        worker_id = data.get("worker")
-        script_id = data.get("script")
-        options = data.get("options")
-        with _views.dbsession(self.request) as session:
-            task = session.query(
-                _models.Task
-            ).get(task_id)
-            if task is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Task with id {task_id} not found",
-                    "data": None,
-                }
-            if worker_id:
-                task.worker_id = worker_id
-            if script_id:
-                task.script_id = script_id
-            if options:
-                task.options.update(options)
-
-            session.commit()
-
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Tasks().dump(task).data,
-            }
-
-    @_view.view_config(request_method="DELETE")
-    def delete_task(self):
-        task_id = self.request.matchdict.get("id")
-        with _views.dbsession(self.request) as session:
-            task = session.query(
-                _models.Task
-            ).get(task_id)
-            if task is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Task with id {task_id} not found",
-                    "data": None,
-                }
-
-            task.state = "DELETED"
-            session.commit()
-
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Tasks().dump(task).data,
-            }
-
-    @_view.view_config(route_name="task_result", request_method="GET")
-    def task_result(self):
-        task_id = self.request.matchdict.get("id")
-        with _views.dbsession(self.request) as session:
-            task = session.query(
-                _models.Task
-            ).get(task_id)
-            if task is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Task with id {task_id} not found",
-                    "data": None,
-                }
-            result = _views.get_result(str(task.id))
-            return {
-                "result": _views.RESULT_OK,
-                "data": {
-                    "return_code": result[0],
-                    "stdout": result[1],
-                    "stderr": result[2],
-                }
-            }
-
-
-@_view.view_defaults(route_name="specific_task_logs", renderer="json")
-class TaskLogs(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(route_name="task_logs", request_method="GET")
-    def get_task_log(self):
-        task_id = self.request.params.get("task")
-        include_data = self.request.params.get("include_data")
-        additional = {}
-        if include_data:
-            additional["include_data"] = ("worker",)
-        with _views.dbsession(self.request) as session:
-            task_logs = session.query(
-                _models.TaskLog
-            ).filter(
-                _models.TaskLog.task_id == task_id
-            ).all()
-            for log in task_logs:
-                print("task_logs: {} {} {}".format(
-                    log.task_id, log.run, log.state))
-            data = _schemas.TaskLog(
-                **additional).dump(task_logs, many=True).data
-            return {
-                "result": _views.RESULT_OK,
-                **data
-            }
-
-
-@_view.view_defaults(route_name="task_children", renderer="json")
-class TaskChildren(object):
-    def __init__(self, request):
-        self.request = request
-
-    @_view.view_config(request_method="GET")
-    def get_children(self):
-        task_id = self.request.matchdict.get("id")
-        include_data = self.request.params.get("include_data")
-        additional = {}
-        if include_data:
-            additional["include_data"] = ("worker", "script")
-        with _views.dbsession(self.request) as session:
-            task = session.query(
-                _models.Task
-            ).get(task_id)
-            if task is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Task with id {task_id} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.Tasks().dump(task.children, many=True).data,
-            }
-
-
 def includeme(config):
-    config.add_route("tasks", "/tasks")
-    config.add_route("tasks_state", "/tasks/state")
-    config.add_route("specific_task", "/tasks/:id")
-    config.add_route("task_result", "/tasks/:id/result")
-    config.add_route("task_logs", "/tasklogs")
-    config.add_route("task_children", "/tasks/:id/children")
+    TaskState.init_handler(config)
+    Tasks.init_handler(config)
+    TaskChildren.init_handler(config)
+    TaskLogs.init_handler(config)

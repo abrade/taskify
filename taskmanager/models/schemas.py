@@ -116,6 +116,7 @@ class Tasks(Schema):
     parent = _fields.Relationship(
         "/tasks/{task_id}",
         related_url_kwargs={"task_id": "<parent_id>"},
+        schema="ParentTask",
     )
     # parent = _fields.Nested(
     #     "Task"
