@@ -9,13 +9,13 @@ export default Controller.extend({
   script_name: "",
   cmd_name: "",
   opts: JSON.parse('[]'),
+  types: JSON.parse('["SCRIPT", "FUNCTION"]'),
   actions: {
     submit() {
       let script = this.get('store').createRecord('script');
       const opts = this.get('opts');
       let options = {};
       let team_id = this.get('team_id').id;
-      console.log("team_id", team_id, parseInt(team_id));
       opts.map(x => options[x.key] = x.value);
       script.set('name', this.get('script_name'));
       script.set('cmd', this.get('cmd_name'));

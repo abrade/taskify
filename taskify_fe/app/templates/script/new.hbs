@@ -8,14 +8,14 @@
       </div>
       <div class="layout-column flex-30">
         {{#form.select
-          options=model.teams
+          options=model
           selected=team_id
           onChange=(action (mut team_id))
           label="Team" as |select|}}
           {{select.name}}
         {{/form.select}}
         {{#form.select
-          options=model.types
+          options=types
           selected=selected_type
           onChange=(action (mut selected_type))
           label="Type" as |select|}}
