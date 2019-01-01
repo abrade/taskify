@@ -15,21 +15,21 @@ class Workers(_views.BaseResource):
     @_views.get_all()
     @_views.with_model(output_model=_schemas.Worker)
     @_views.with_links
-    def get(self, include_data=None, page=0, max_entries=20):
+    def get(self, include_data=None, page=0, size=20):
         with _views.dbsession(self.request) as session:
             workers = session.query(
                 _models.Worker
             )
             max_elements = workers.count()
             workers = workers.offset(
-                page*max_entries
+                page*size
             ).limit(
-                max_entries
+                size
             ).all()
             return {
                 'meta': {
                     'page': page,
-                    'max_entries': max_entries,
+                    'max_entries': size,
                     'max_elements': max_elements,
                 },
                 'data': workers,

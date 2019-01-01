@@ -22,13 +22,22 @@ def worker():
     default="name",
     help="Select output format (default: name)"
 )
-def list(format):
+@_click.option("--size", required=False, default=100, help="Limit Items in result")
+@_click.option("--page", required=False, default=0, help="Page for the result")
+def list(format, size, page):
     cfg = get_config()
-    result = _requests.get("{server}/workers".format(**cfg)).json()
+    params = f"include_data=1&page[size]={size}&page[number]={page}"
+    result = _requests.get(
+        "{server}/workers?{params}".format(
+            params=params,
+            **cfg
+        )
+    ).json()
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
-    data = _schema.Worker().load(result, many=True).data
+    result.pop("meta")
+    data = _schema.Worker().load(result, many=True)
     if format == "json":
         _click.echo(_json.dumps(data))
     elif format == "csv":

@@ -14,7 +14,8 @@ class WorkerQueues(_views.BaseResource):
 
     @_views.get_all()
     @_views.with_model(output_model=_schemas.WorkerQueue)
-    def get_all(self, worker_id=None):
+    @_views.with_links
+    def get_all(self, worker_id=None, page=0, size=20):
         queue_names = None
         with _views.dbsession(self.request) as session:
             if worker_id:
@@ -38,13 +39,25 @@ class WorkerQueues(_views.BaseResource):
             queues = session.query(
                 _models.WorkerQueue
             )
+            max_elements = queues.count()
             if queue_names:
                 queues = queues.filter(
                     _models.WorkerQueue.name.in_(queue_names)
                 )
 
-            queues = queues.all()
-            return queues
+            queues = queues.offset(
+                page*size
+            ).limit(
+                size
+            ).all()
+            return {
+                'meta': {
+                    'page': page,
+                    'max_entries': size,
+                    'max_elements': max_elements,
+                },
+                'data': queues,
+            }
 
     @_views.post_one()
     @_views.with_model(model=_schemas.WorkerQueue)

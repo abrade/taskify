@@ -45,10 +45,10 @@ def script():
 @_click.option("--page", required=False, default=0, help="Page for the result")
 def list(format, size, page):
     cfg = get_config()
+    params = f"include_data=1&page[size]={size}&page[number]={page}"
     result = _requests.get(
-        "{server}/scripts?include_data=1&page[size]={size}&page[number]={page}".format(
-            size=size,
-            page=page,
+        "{server}/scripts?{params}".format(
+            params=params,
             **cfg
         ),
     ).json()
@@ -56,8 +56,8 @@ def list(format, size, page):
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
-    meta = result.pop("meta")
-    data = _schema.Script(many=True).load(result).data
+    result.pop("meta")
+    data = _schema.Script(many=True).load(result)
     if format == "json":
         _click.echo(_json.dumps(data))
     elif format == "csv":
