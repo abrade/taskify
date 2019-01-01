@@ -9,7 +9,6 @@ import subprocess as _subprocess
 import importlib as _importlib
 import functools as _ft
 import collections as _collection
-import inspect as _inspect
 
 import celery as _celery
 import celery.result as _result
@@ -97,7 +96,7 @@ def start_task(executable, config, options, additional_info=None):
 
 @celery_app.task(retry_kwargs={'max_retries': 5})
 def start_function(function, config, args, additional_info=None):
-    print('{}, {}, {}'.format(function, args, additional_info))
+    _log.debug('{}, {}, {}'.format(function, args, additional_info))
     module, func = function.rsplit('.', 1)
     try:
         module = _importlib.import_module(module)
@@ -183,9 +182,9 @@ class BaseResource(object):
     def _define_route(cls, config, func, req_method):
         resource = func.__resource__
         url = f'/{cls.NAME}'
-        name = f'{cls.NAME}/{func.__name__}/{req_method}'
+        name = f'{cls.NAME}/{func.__name__}'
         resource['name'] = name
-        print(f"Adding {url} for {name} and {req_method}")
+        _log.debug(f"Adding {url} for {name} and {req_method}")
         config.add_route(name, url, request_method=req_method)
         config.add_view(
             view=cls,
@@ -199,9 +198,9 @@ class BaseResource(object):
     def _define_route_with_param(cls, config, func, req_method):
         resource = func.__resource__
         url = f'/{cls.NAME}/{{{resource.get("param")}}}'
-        name = f'{cls.NAME}/{func.__name__}/{req_method}'
+        name = f'{cls.NAME}/{func.__name__}'
         resource['name'] = name
-        print(f"Adding {url} for {name} and {req_method}")
+        _log.debug(f"Adding {url} for {name} and {req_method}")
         config.add_route(name, url, request_method=req_method)
         config.add_view(
             view=cls,
@@ -263,7 +262,7 @@ def _wrap_func(func):
             input_data = input_schema().load(input_data).data
             kwargs.update({'post_data': input_data})
         try:
-            print(dict(req.params))
+            _log.debug(dict(req.params))
             data = func(self, *args, **kwargs)
         except RestAPIException as ex:
             return {
@@ -297,8 +296,8 @@ def _wrap_func(func):
             attr['include_data'] = resource.get('include')
 
         if output_schema:
-            data = output_schema(**attr).dump(data).data
-
+            data = output_schema(**attr).dump(data)
+            # from ipdb import set_trace as br; br()
         result.update(data)
         return result
 

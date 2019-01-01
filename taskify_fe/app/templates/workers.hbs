@@ -1,17 +1,31 @@
-<div class="ui segment">
-  <table class="ui small selectable table">
-    <thead>
-      <tr>
-        <th>Worker</th>
-        <th>State</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each model as |worker|}}
-      {{#link-to 'worker' (query-params worker=worker.id) tagName="tr" class=worker.stateColor }}
-      <td>{{worker.name}}</td>
-      <td>{{worker.state}}</td>
-      {{/link-to}} {{/each}}
-    </tbody>
-  </table>
-</div>
+{{#data-table
+  content=model
+  isLoading=isLoadingModel
+  enableSizes=false
+  filter=filter
+  sort=sort
+  page=page
+  size=size
+  onClickRow=(route-action "onClick")
+  as |t|
+}}
+  {{#t.content as |c|}}
+    {{#c.header}}
+      <th></th>
+      <th>Worker</th>
+      <th>State</th>
+    {{/c.header}}
+    {{#c.body as |row|}}
+    {{log row}}
+      <td>
+        {{#paper-icon "power-settings-new" class=row.state }}
+          {{#paper-tooltip position="right"}}
+            {{row.state}}
+          {{/paper-tooltip}}
+        {{/paper-icon}}
+      </td>
+      <td>{{row.name}}</td>
+      <td>{{row.state}}</td>
+    {{/c.body}}
+  {{/t.content}}
+{{/data-table}}

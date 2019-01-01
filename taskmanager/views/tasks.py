@@ -2,7 +2,6 @@
 
 import logging as _logging
 
-import pyramid.view as _view
 import sqlalchemy.orm as _sa
 
 import taskmanager.views as _views
@@ -149,17 +148,10 @@ class Tasks(_views.BaseResource):
             return task
 
     @_views.get_all()
-    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker",))
+    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker", "script.team", "depends"))
     @_views.with_links
     def get_tasks(self, state="ALL", page=0, size=20, script=None, worker=None, team=None, include_data=None):
-        # state_filter = self.request.params.get("state", "ALL")
-        # page = int(self.request.params.get("page[number]", 0))
-        # max_entries = int(self.request.params.get("page[size]", 20))
         max_entries = int(size)
-        # script = self.request.params.getall("script")
-        # worker = self.request.params.getall("worker")
-        # team = self.request.params.get("team")
-
         state_filter = get_states(state)
         _log.debug(f"Params: {self.request.params}")
         _log.debug(f"State filter: {state_filter}")
@@ -257,7 +249,7 @@ class Tasks(_views.BaseResource):
             return task
 
     @_views.delete_one(param="task_id")
-    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker",))
+    @_views.with_model(output_model=_schemas.Tasks, include=("script", "worker"))
     def delete_task(self, task_id, include_data=None):
         with _views.dbsession(self.request) as session:
             task = session.query(
@@ -296,8 +288,8 @@ class TaskLogs(_views.BaseResource):
 class TaskChildren(_views.BaseResource):
     NAME = "tasks/{task_id}/children"
 
-    @_views.get_one()
-    @_views.with_model(output_model=Tasks, include=("worker", "script"))
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.Tasks, include=("worker", "script"))
     def get_children(self, task_id):
         with _views.dbsession(self.request) as session:
             task = session.query(
@@ -309,6 +301,24 @@ class TaskChildren(_views.BaseResource):
                     _views.RESULT_NOTFOUND
                 )
             return task
+
+
+class TaskDepends(_views.BaseResource):
+    NAME = "tasks/{task_id}/depends"
+
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.Tasks, include=("worker", "script"))
+    def get_depends(self, task_id):
+        with _views.dbsession(self.request) as session:
+            task = session.query(
+                _models.Task
+            ).get(task_id)
+            if task is None:
+                raise _views.RestAPIException(
+                    f"Task with id {task_id} not found",
+                    _views.RESULT_NOTFOUND
+                )
+            return task.depends
 
 
 class TaskResult(_views.BaseResource):
@@ -381,4 +391,5 @@ def includeme(config):
     TaskState.init_handler(config)
     Tasks.init_handler(config)
     TaskChildren.init_handler(config)
+    TaskDepends.init_handler(config)
     TaskLogs.init_handler(config)

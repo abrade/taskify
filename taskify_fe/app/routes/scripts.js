@@ -8,7 +8,7 @@ export default Route.extend(DataTableRouteMixin, {
       let router = this.get('router');
       // router.transitionTo("task", {queryParams: {task: row.id} });
     },
-    addScript(row) {
+    addScript() {
       let router = this.get('router');
       router.transitionTo("script.new");    
     }

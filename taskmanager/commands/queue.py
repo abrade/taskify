@@ -66,4 +66,5 @@ def add(name):
             fg="red",
         )
         return
-    _click.secho("Queue created", fg="green")
+    data = _schema.WorkerQueue().load(result).data
+    _click.secho(f"Queue created {data}", fg="green")

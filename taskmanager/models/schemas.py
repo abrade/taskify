@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import marshmallow as _mm
 import marshmallow_jsonapi as _marshmallow
 import marshmallow_jsonapi.fields as _fields
 # import marshmallow_sqlalchemy as _marshmallow
 # import marshmallow.fields as _fields
 
-
+SimpleSchema = _mm.Schema
 Schema = _marshmallow.Schema
 # Schema = _marshmallow.ModelSchema
 
@@ -48,6 +49,7 @@ class Script(Schema):
         "/teams/{team_id}",
         include_data=True,
         schema="Team",
+        type_="teams",
         related_url_kwargs={"team_id": "<team_id>"},
     )
     team_id = _fields.Int()
@@ -73,12 +75,20 @@ class ParentTask(Schema):
         "/workerqueues/{worker_id}",
         include_data=True,
         schema="WorkerQueue",
+        type_="workerqueues",
         related_url_kwargs={"worker_id": "<worker_id>"},
     )
 
     class Meta:
         type_ = "tasks"
         strict = True
+
+
+class TaskDepend(SimpleSchema):
+    id = _fields.Integer(load_from="task_id")
+
+    class Meta:
+        type_ = "taskdepend"
 
 
 class Tasks(Schema):
@@ -97,21 +107,24 @@ class Tasks(Schema):
         "/workerqueues/{worker_id}",
         include_data=True,
         schema="WorkerQueue",
+        type_="workerqueues",
         related_url_kwargs={"worker_id": "<worker_id>"},
     )
     # worker = _fields.Nested(
     #     "WorkerQueue",
     # )
-    depends = _fields.Nested(
-        "TaskDepend",
-        many=True,
-        allow_none=True,
-        default=None
-    )
-    # depends = _fields.Relationship(
-    #     "/tasks/{task_id}",
-    #     related_url_kwargs={"task_id": "<depend_ids>"}
+    # depends = _fields.Nested(
+    #     TaskDepend,
+    #     many=True,
+    #     allow_none=True,
+    #     default=None,
     # )
+    depends = _fields.Relationship(
+        "/tasks/{task_id}/depends",
+        related_url_kwargs={"task_id": "<id>"},
+        schema="Tasks",
+        many=True,
+    )
 
     parent = _fields.Relationship(
         "/tasks/{task_id}",
@@ -133,6 +146,7 @@ class Tasks(Schema):
         "/scripts/{script_id}",
         include_data=True,
         schema="Script",
+        type_="scripts",
         related_url_kwargs={"script_id": "<script_id>"},
     )
 
@@ -150,14 +164,6 @@ class Tasks(Schema):
         strict = False
 
 
-class TaskDepend(Schema):
-    id = _fields.Integer(load_from="task_id")
-
-    class Meta:
-        type_ = "taskdepend"
-        strict = True
-
-
 class TaskLog(Schema):
     id = _fields.Integer()
     task_id = _fields.Integer(dump_to="taskId", load_from="taskId")
@@ -167,7 +173,7 @@ class TaskLog(Schema):
         "/workers/{worker_id}",
         include_data=True,
         schema="Worker",
-        type_="worker",
+        type_="workers",
         related_url_kwargs={'worker_id': '<worker_id>'}
     )
 

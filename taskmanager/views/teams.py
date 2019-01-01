@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging as _logging
-import json as _json
-
-import pyramid.view as _view
 
 import taskmanager.views as _views
 import taskmanager.models as _models
@@ -127,6 +124,3 @@ class TeamName(_views.BaseResource):
 def includeme(config):
     Teams.init_handler(config)
     TeamName.init_handler(config)
-    # config.add_route("all_teams", "/teams")
-    # config.add_route("specific_team", "/teams/:id")
-    # config.add_route("name_team", "/teams/name/:name")

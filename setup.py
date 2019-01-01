@@ -26,7 +26,7 @@ requires = [
     'celery[auth,msgpack]',
     'marshmallow-sqlalchemy',
     'marshmallow-jsonapi',
-    'marshmallow==3.0.0b4',
+    'marshmallow==3.0.0.rc1',
 ]
 
 tests_require = [

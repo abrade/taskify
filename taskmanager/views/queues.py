@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging as _logging
-import json as _json
-
-import pyramid.view as _view
 
 import taskmanager.views as _views
 import taskmanager.models as _models
@@ -59,7 +56,7 @@ class WorkerQueues(_views.BaseResource):
                 _views.RESULT_ERROR,
             )
         with _views.dbsession(self.request) as session:
-            queue = _models.WorkerQueue(queue_name, "inaktive")
+            queue = _models.WorkerQueue(queue_name, "inactive")
             session.add(queue)
             session.commit()
             session.refresh(queue)
@@ -101,14 +98,12 @@ class WorkerQueues(_views.BaseResource):
             return queue
 
 
-@_view.view_defaults(route_name="name_queue")
-class WorkerNameQueue(object):
-    def __init__(self, request):
-        self.request = request
+class WorkerNameQueue(_views.BaseResource):
+    NAME = "workerqueues/name/{name}"
 
-    @_view.view_config(request_method="GET", renderer="json")
-    def get_one(self):
-        name = self.request.matchdict.get("name")
+    @_views.get_all()
+    @_views.with_model(output_model=_schemas.WorkerQueue)
+    def get_one(self, name):
         with _views.dbsession(self.request) as session:
             queue = session.query(
                 _models.WorkerQueue
@@ -128,4 +123,4 @@ class WorkerNameQueue(object):
 
 def includeme(config):
     WorkerQueues.init_handler(config)
-    config.add_route("name_queue", "/workerqueues/name/:name")
+    WorkerNameQueue.init_handler(config)

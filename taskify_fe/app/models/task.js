@@ -10,7 +10,7 @@ export default DS.Model.extend({
   options: DS.attr(),
   scheduledBy: DS.attr(),
   worker: DS.belongsTo('workerqueue'),
-  depends: DS.attr(),
+  depends: DS.hasMany('task', {inverse: null}),
   children: DS.hasMany('task', {inverse: null}),
   parent: DS.belongsTo('task', {inverse: null}),
   script: DS.belongsTo('script'),

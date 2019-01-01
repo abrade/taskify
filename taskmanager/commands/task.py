@@ -119,27 +119,8 @@ def list(format, team_id, script_id, worker_id, state, size, page):
         _click.secho("Couldn't get result. Error: {error}".format(
             **result), fg="red")
         return
-
-    data = _schema.Tasks().load(result, many=True).data
-    for task in data:
-        task["script"] = _get_remote_data(
-            task,
-            "scripts",
-            "script",
-            _schema.Script
-        )
-        task["worker"] = _get_remote_data(
-            task,
-            "workerqueues",
-            "worker",
-            _schema.WorkerQueue
-        )
-        task["script"]["team"] = _get_remote_data(
-            task["script"],
-            "teams",
-            "team",
-            _schema.Team
-        )
+    meta = result.pop("meta")
+    data = _schema.Tasks(many=True).load(result)
 
     if format == "json":
         _click.echo(_json.dumps(data))

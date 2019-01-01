@@ -41,16 +41,22 @@ def script():
     default="name",
     help="Select output format (default: name)"
 )
-def list(format):
+@_click.option("--size", required=False, default=100, help="Limit Items in result")
+@_click.option("--page", required=False, default=0, help="Page for the result")
+def list(format, size, page):
     cfg = get_config()
     result = _requests.get(
-        "{server}/scripts?include_data=1".format(**cfg),
+        "{server}/scripts?include_data=1&page[size]={size}&page[number]={page}".format(
+            size=size,
+            page=page,
+            **cfg
+        ),
     ).json()
 
     if result["result"] != "OK":
         _click.echo("Couldn't receive data. Error: {error}".format(**result))
         return
-
+    meta = result.pop("meta")
     data = _schema.Script(many=True).load(result).data
     if format == "json":
         _click.echo(_json.dumps(data))
