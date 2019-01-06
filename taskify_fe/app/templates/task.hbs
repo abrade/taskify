@@ -17,7 +17,7 @@
 
 {{#paper-card as |card|}}
   {{#paper-list}}
-    {{#each (sort-by "run:desc" model.logs) as |task_log|}}
+    {{#each (sort-by "run:desc" model.task.logs) as |task_log|}}
       {{#paper-item class="md-2-line"}}
         <div class="md-list-item-text">
           <h3>{{task_log.worker.name}}</h3>

@@ -14,7 +14,7 @@ export default DS.Model.extend({
   children: DS.hasMany('task', {inverse: null}),
   parent: DS.belongsTo('task', {inverse: null}),
   script: DS.belongsTo('script'),
-  logs: DS.belongsTo('tasklog'),
+  logs: DS.hasMany('tasklog'),
 
   taskColor: computed('state', function() {
     const state = this.get('state')

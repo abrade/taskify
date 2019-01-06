@@ -18,14 +18,16 @@
     {{#c.body as |row|}}
     {{log row}}
       <td>
+      </td>
+      <td>{{row.name}}</td>
+      <td>
         {{#paper-icon "power-settings-new" class=row.state }}
           {{#paper-tooltip position="right"}}
             {{row.state}}
           {{/paper-tooltip}}
         {{/paper-icon}}
+        {{row.state}}
       </td>
-      <td>{{row.name}}</td>
-      <td>{{row.state}}</td>
     {{/c.body}}
   {{/t.content}}
 {{/data-table}}

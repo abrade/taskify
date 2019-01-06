@@ -18,7 +18,6 @@ export default Route.extend({
     return RSVP.hash(
       {
         task: this.get('store').findRecord('task', params.task),
-        logs: this.get('store').query('tasklog', params),
         details: details
       }
     )

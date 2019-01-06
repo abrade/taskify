@@ -80,9 +80,9 @@ def includeme(config):
     config.registry['dbsession_factory'] = session_factory
 
     # make request.dbsession available for use in Pyramid
-    config.add_request_method(
-        # r.tm is the transaction manager used by pyramid_tm
-        lambda r: get_tm_session(session_factory, r.tm),
-        'dbsession',
-        reify=True
-    )
+    # config.add_request_method(
+    #     # r.tm is the transaction manager used by pyramid_tm
+    #     lambda r: get_tm_session(session_factory, r.tm),
+    #     'dbsession',
+    #     reify=True
+    # )

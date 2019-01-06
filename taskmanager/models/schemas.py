@@ -3,12 +3,9 @@
 import marshmallow as _mm
 import marshmallow_jsonapi as _marshmallow
 import marshmallow_jsonapi.fields as _fields
-# import marshmallow_sqlalchemy as _marshmallow
-# import marshmallow.fields as _fields
 
 SimpleSchema = _mm.Schema
 Schema = _marshmallow.Schema
-# Schema = _marshmallow.ModelSchema
 
 
 class Team(Schema):
@@ -110,15 +107,7 @@ class Tasks(Schema):
         type_="workerqueues",
         related_url_kwargs={"worker_id": "<worker_id>"},
     )
-    # worker = _fields.Nested(
-    #     "WorkerQueue",
-    # )
-    # depends = _fields.Nested(
-    #     TaskDepend,
-    #     many=True,
-    #     allow_none=True,
-    #     default=None,
-    # )
+
     depends = _fields.Relationship(
         "/tasks/{task_id}/depends",
         related_url_kwargs={"task_id": "<id>"},
@@ -131,9 +120,6 @@ class Tasks(Schema):
         related_url_kwargs={"task_id": "<parent_id>"},
         schema="ParentTask",
     )
-    # parent = _fields.Nested(
-    #     "Task"
-    # )
 
     children = _fields.Relationship(
         "/tasks/{task_id}/children",
@@ -151,22 +137,21 @@ class Tasks(Schema):
     )
 
     logs = _fields.Relationship(
-        "/tasklogs/{task_id}",
+        "/tasks/{task_id}/logs",
         include_data=True,
         many=True,
-        schema="TaskLog",
         type_='tasklog',
         related_url_kwargs={"task_id": "<id>"},
     )
 
     class Meta:
         type_ = "tasks"
-        strict = False
+        strict = True
 
 
 class TaskLog(Schema):
     id = _fields.Integer()
-    task_id = _fields.Integer(dump_to="taskId", load_from="taskId")
+    task_id = _fields.Integer()
     run = _fields.DateTime(format="%a, %d %b %Y %H:%M:%S")
     state = _fields.Str()
     worker = _fields.Relationship(

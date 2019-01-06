@@ -2,7 +2,7 @@ import DS from 'ember-data';
 import { computed } from '@ember/object';
 
 export default DS.Model.extend({
-  taskId: DS.attr(),
+  task_id: DS.attr(),
   run: DS.attr(),
   worker: DS.belongsTo('worker'),
   state: DS.attr(),

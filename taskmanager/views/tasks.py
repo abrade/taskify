@@ -268,17 +268,18 @@ class Tasks(_views.BaseResource):
 
 
 class TaskLogs(_views.BaseResource):
-    NAME = "tasklogs"
+    NAME = "tasks/{task_id}/logs"
 
     @_views.get_all()
     @_views.with_model(output_model=_schemas.TaskLog, include=("worker",))
-    def get_task_log(self, task=None):
+    def get_task_log(self, task_id):
         with _views.dbsession(self.request) as session:
             task_logs = session.query(
                 _models.TaskLog
             ).filter(
-                _models.TaskLog.task_id == task
+                _models.TaskLog.task_id == task_id
             ).all()
+            _log.debug("found {task_id} as {count}".format(task_id=task_id, count=len(task_logs)))
             for log in task_logs:
                 print("task_logs: {} {} {}".format(
                     log.task_id, log.run, log.state))
@@ -389,7 +390,8 @@ class TaskState(_views.BaseResource):
 
 def includeme(config):
     TaskState.init_handler(config)
-    Tasks.init_handler(config)
+    TaskResult.init_handler(config)
     TaskChildren.init_handler(config)
     TaskDepends.init_handler(config)
     TaskLogs.init_handler(config)
+    Tasks.init_handler(config)
