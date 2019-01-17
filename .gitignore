@@ -20,6 +20,9 @@ Data.fs*
 coverage
 test
 __pycache__
+.idea
+taskmanager.conf
+taskmanager/clientgi
 
 # compiled output
 /dist
