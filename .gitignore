@@ -22,7 +22,7 @@ test
 __pycache__
 .idea
 taskmanager.conf
-taskmanager/clientgi
+taskmanager/client
 
 # compiled output
 /dist
