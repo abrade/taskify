@@ -18,6 +18,7 @@ Router.map(function() {
     this.route('new');
   });
   this.route('queues');
+  this.route('dashboard');
 });
 
 export default Router;
