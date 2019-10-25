@@ -5,9 +5,8 @@ import json as _json
 import requests as _requests
 import click as _click
 
-from .config import get_config
-
 import taskmanager.models.schemas as _schema
+import taskmanager.commands.base as _base
 
 
 @_click.group(short_help="command to get/create/update workers")
@@ -25,17 +24,15 @@ def worker():
 @_click.option("--size", required=False, default=100, help="Limit Items in result")
 @_click.option("--page", required=False, default=0, help="Page for the result")
 def list(format, size, page):
-    cfg = get_config()
     params = f"include_data=1&page[size]={size}&page[number]={page}"
-    result = _requests.get(
-        "{server}/workers?{params}".format(
+    result = _base.get_response(
+        "{{server}}/workers?{params}".format(
             params=params,
-            **cfg
         )
-    ).json()
-    if result["result"] != "OK":
-        _click.echo("Couldn't receive data. Error: {error}".format(**result))
+    )
+    if not result:
         return
+    result = result.json()
     result.pop("meta")
     data = _schema.Worker().load(result, many=True)
     if format == "json":
@@ -56,36 +53,31 @@ def list(format, size, page):
 @worker.command(short_help="Create new worker")
 @_click.argument("name")
 def add(name):
-    cfg = get_config()
     params = {
         'name': name
     }
     params = _schema.Worker().dump(params).data
-    result = _requests.post(
-        "{server}/workers".format(**cfg),
+    result = _base.post_response(
+        "{server}/workers",
         data=_json.dumps(params)
-    ).json()
-    if result["result"] != "OK":
-        _click.echo(
-            "Error while creating new worker: {error}".format(**result))
-    else:
-        _click.echo("Worker created.")
+    )
+    if not result:
+        return
+
+    _click.echo("Worker created.")
 
 
 @worker.command(short_help="Update worker")
 @_click.argument("worker_id", type=int)
 @_click.argument("worker")
 def update(worker_id, worker):
-    cfg = get_config()
     params = _schema.Worker().dump({"name": worker}).data
-    result = _requests.patch(
-        "{server}/workers/{worker_id}".format(
+    result = _base.patch_response(
+        "{{server}}/workers/{worker_id}".format(
             worker_id=worker_id,
-            **cfg,
         ),
         data=_json.dumps(params)
-    ).json()
-    if result["result"] != "OK":
-        _click.echo("Error while updating worker: {error}".format(**result))
-    else:
-        _click.echo("Worker updated.")
+    )
+    if not result:
+        return
+    _click.echo("Worker updated.")

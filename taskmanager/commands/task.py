@@ -6,9 +6,8 @@ import platform as _platform
 import requests as _requests
 import click as _click
 
-from .config import get_config
-
 import taskmanager.models.schemas as _schema
+import taskmanager.commands.base as _base
 
 _COLORS = {
     "SUCCEED": "green",
@@ -22,58 +21,56 @@ _COLORS = {
 
 
 def _get_worker_queue_by_name(queue_name):
-    cfg = get_config()
-    url = "{server}/workerqueues/name/{queue_name}".format(
+    url = "{{server}}/workerqueues/name/{queue_name}".format(
         queue_name=queue_name,
-        **cfg,
     )
     try:
-        result = _requests.get(url).json()
+        result = _base.get_response(url)
     except _json.JSONDecodeError:
         return None
-    if result["result"] != "OK":
-        _click.secho(
-            "Couldn't get result. Error: {error}".format(**result),
-            fg="red",
-        )
+    if not result:
         return
-    return _schema.WorkerQueue().load(result).data
+    result = result.json()
+    result = result.pop("data")
+    return _schema.WorkerQueue().load(result)
 
 
 def _get_script_by_name(script_name):
-    cfg = get_config()
-    url = "{server}/scripts/name/{script_name}?include_data=1".format(
+    url = "{{server}}/scripts/name/{script_name}".format(
         script_name=script_name,
-        **cfg,
     )
     try:
-        result = _requests.get(url).json()
+        result = _base.get_response(url)
     except _json.JSONDecodeError:
         return None
-    if result["result"] != "OK":
-        _click.secho(
-            "Couldn't get result. Error: {error}".format(**result),
-            fg="red",
-        )
+    if not result:
         return
-    return _schema.Script().load(result).data
+    result = result.json()
+    result = result.pop("data")
+    return _schema.Script().load(result)
 
 
-def _get_remote_data(task, url, data_type, schema):
-    url = "{server}/{url}/{script}?include_data=1".format(
-        script=task[data_type],
-        url=url,
-        **get_config()
-    )
-    result = _requests.get(url).json()
-    if result["result"] != "OK":
-        _click.secho("Couldn't get result. Error: {error}".format(
-            **result),
-            fg="red"
-        )
+# def _get_remote_data(task, url, data_type, schema):
+#     url = "{{server}}/{url}/{script}".format(
+#         script=task[data_type],
+#         url=url,
+#     )
+#     result = _base.get_response(url)
+#     if not result:
+#         return
+
+#     return schema().load(result.json()).data
+
+
+def _get_remote_data(url, schema):
+    url = "{{server}}{url}".format(url=url)
+    result = _base.get_response(url)
+    if not result:
         return
-
-    return schema().load(result).data
+    result = result.json()
+    if 'data' in result:
+        result = result.pop("data")
+    return schema().load(result)
 
 
 @_click.group(short_help="command to get/create/update tasks")
@@ -109,18 +106,27 @@ def list(format, team_id, script_id, worker_id, state, size, page):
     if page:
         params.append(f"page[number]={page}")
 
-    url = "{server}/tasks?{params}".format(
+    url = "{{server}}/tasks?{params}".format(
         params="&".join(params),
-        **get_config()
     )
 
-    result = _requests.get(url).json()
-    if result["result"] != "OK":
-        _click.secho("Couldn't get result. Error: {error}".format(
-            **result), fg="red")
+    response = _base.get_response(url)
+    if not response:
         return
+    result = response.json()
     meta = result.pop("meta")
-    data = _schema.Tasks(many=True).load(result)
+    attrs = {'many': True}
+    json_api = result.get('json_api', False)
+    if json_api:
+        attrs['include_data'] = ("script", "worker", "script.team", "depends")
+    else:
+        result = result.pop("data")
+    data = _schema.Tasks(**attrs).load(result)
+    if not json_api:
+        for task in data:
+            task["script"] = _get_remote_data(task["script"], _schema.Script)
+            task["script"]["team"] = _get_remote_data(task["script"]["team"], _schema.Team)
+            task["worker"] = _get_remote_data(task["worker"], _schema.WorkerQueue)
 
     if format == "json":
         _click.echo(_json.dumps(data))
@@ -191,7 +197,6 @@ def list(format, team_id, script_id, worker_id, state, size, page):
 @_click.option("--parent", type=int, required=False)
 @_click.option("--depend", type=int, multiple=True, help="Task depending on Task ids", required=False)
 def add(title, worker, script, option, parent, depend):
-    cfg = get_config()
     worker_queue = _get_worker_queue_by_name(worker)
     if worker_queue is None:
         _click.secho(
@@ -230,38 +235,29 @@ def add(title, worker, script, option, parent, depend):
     if depend:
         params["depends"] = depend
     # {"include_data": ("script", "worker",)}
-    params = _schema.Tasks(include_data=("script", "worker")).dump(params).data
-    result = _requests.post(
-        "{server}/tasks".format(**cfg),
+    params = _schema.Tasks().dump(params)
+    result = _base.post_response(
+        "{server}/tasks",
         data=_json.dumps(params)
-    ).json()
+    )
 
-    if result["result"] != "OK":
-        _click.secho(
-            "Couldn't get result. Error: {error}".format(
-                **result
-            ),
-            fg="red",
-        )
+    if not result:
         return
+    result = result.json()
     _click.secho("{id}".format(**result), fg="green")
 
 
 @task.command(short_help="Get result for task")
 @_click.argument("task_id")
 def result(task_id):
-    cfg = get_config()
-    result = _requests.get(
-        "{server}/tasks/{task_id}/result".format(
+    result = _base.get_response(
+        "{{server}}/tasks/{task_id}/result".format(
             task_id=task_id,
-            **cfg
         )
-    ).json()
-    if result["result"] != "OK":
-        _click.secho("Couldn't get result. Error: {error}".format(
-            **result), fg="red")
+    )
+    if not result:
         return
-
+    result = result.json()
     data = result["data"]
     _click.echo("Result Code: {return_code}".format(**data))
     _click.secho("Stdout: {stdout}".format(**data), fg="green")

@@ -20,13 +20,12 @@ requires = [
     'zope.sqlalchemy',
     'waitress',
     'click',
-    'amqp',
     'psycopg2-binary',
     'requests',
     'celery[auth,msgpack]',
     'marshmallow-sqlalchemy',
     'marshmallow-jsonapi',
-    'marshmallow==3.0.0.rc1',
+    'marshmallow',
 ]
 
 tests_require = [
@@ -37,7 +36,7 @@ tests_require = [
 
 setup(
     name='taskmanager',
-    version='0.0',
+    version='0.1',
     description='taskmanager',
     long_description=README + '\n\n' + CHANGES,
     classifiers=[

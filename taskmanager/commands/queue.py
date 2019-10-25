@@ -5,9 +5,8 @@ import json as _json
 import requests as _requests
 import click as _click
 
-from .config import get_config
-
 import taskmanager.models.schemas as _schema
+import taskmanager.commands.base as _base
 
 @_click.group(short_help="command to get/create/update queues")
 def queue():
@@ -24,18 +23,19 @@ def queue():
 @_click.option("--size", required=False, default=100, help="Limit Items in result")
 @_click.option("--page", required=False, default=0, help="Page for the result")
 def list(format, size, page):
-    cfg = get_config()
     params = f"include_data=1&page[size]={size}&page[number]={page}"
-    result = _requests.get(
-        "{server}/workerqueues?{params}".format(
+    response = _base.get_response(
+        "{{server}}/workerqueues?{params}".format(
             params=params,
-            **cfg
         )
-    ).json()
-    if result["result"] != "OK":
-        _click.echo("Couldn't receive data. Error: {error}".format(**result))
+    )
+
+    if not response:
         return
+    result = response.json()
     result.pop("meta")
+    if 'data' in result:
+        result = result.pop("data")
     data = _schema.WorkerQueue(many=True).load(result)
     if format == "json":
         _click.echo(_json.dumps(data))
@@ -61,19 +61,17 @@ def add(name):
         'state': 'active',
     }
 
-    params = _schema.WorkerQueue().dump(queue).data
-    result = _requests.post(
-        "{server}/workerqueues".format(**cfg),
+    params = _schema.WorkerQueue().dump(queue)
+    result = _base.post_response(
+        "{{server}}/workerqueues",
         data=_json.dumps(params)
-    ).json()
+    )
 
-    if result["result"] != "OK":
-        _click.secho(
-            "Couldn't get result. Error: {error}".format(
-                **result
-            ),
-            fg="red",
-        )
+    if not result:
         return
-    data = _schema.WorkerQueue().load(result).data
+    result = result.json()
+    if 'data' in result:
+        result = result.pop("data")
+
+    data = _schema.WorkerQueue().load(result)
     _click.secho(f"Queue created {data}", fg="green")

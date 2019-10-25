@@ -121,17 +121,12 @@ class WorkerNameQueue(_views.BaseResource):
             queue = session.query(
                 _models.WorkerQueue
             ).filter_by(name=name).all()
-            print(queue)
             if queue is None:
-                return {
-                    "result": _views.RESULT_NOTFOUND,
-                    "error": f"Worker with id {name} not found",
-                    "data": None,
-                }
-            return {
-                "result": _views.RESULT_OK,
-                **_schemas.WorkerQueue().dump(queue[0]).data,
-            }
+                raise _views.RestAPIException(
+                    f"Worker with id {name} not found",
+                    _views.RESULT_NOTFOUND,
+                )
+            return queue[0]
 
 
 def includeme(config):
