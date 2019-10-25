@@ -1,11 +1,49 @@
 # -*- coding: utf-8 -*-
 
-import marshmallow as _mm
-import marshmallow_jsonapi as _marshmallow
-import marshmallow_jsonapi.fields as _fields
+import os as _os
+import re as _re
 
+import marshmallow as _mm
+import marshmallow.fields as _mm_fields
+import marshmallow_jsonapi as _mm_jsonapi
+import marshmallow_jsonapi.fields as _mm_jsonapi_fields
+
+from marshmallow.utils import get_value
+
+_tpl_pattern = _re.compile(r'\s*<\s*(\S*)\s*>\s*')
 SimpleSchema = _mm.Schema
-Schema = _marshmallow.Schema
+
+Schema = _mm.Schema
+_fields = _mm_fields
+# _fields.Relationship = _mm_jsonapi_fields.Relationship
+if _os.environ.get('JSONAPI'):
+    Schema = _mm_jsonapi.Schema
+    _fields = _mm_jsonapi_fields
+
+class Relationship(_mm_fields.Field):
+    def __init__(self, related_url, related_url_kwargs={}, **kwargs):
+        super(Relationship, self).__init__(**kwargs)
+        self._related_url = related_url
+        self._related_url_kwargs = related_url_kwargs
+
+    def _serialize(self, value, attr, obj):
+        def tpl(val):
+            """Return value within ``< >`` if possible, else return ``None``."""
+            match = _tpl_pattern.match(val)
+            if match:
+                return match.groups()[0]
+            return None
+        dict_class = self.parent.dict_class if self.parent else dict
+
+        attr = {
+            key: get_value(obj, tpl(value))
+            for key, value in self._related_url_kwargs.items()
+        }
+        url = self._related_url.format(**attr)
+        return url
+
+if Schema != _mm_jsonapi.Schema:
+    _fields.Relationship = Relationship
 
 
 class Team(Schema):

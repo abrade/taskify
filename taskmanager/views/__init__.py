@@ -13,11 +13,12 @@ import collections as _collection
 import celery as _celery
 import celery.result as _result
 import celery.exceptions as _exceptions
+import celery.utils.log as _logging
+
+import pyramid.httpexceptions as _httpexceptions
 
 import psycopg2 as _psycopg2
-
 import sqlalchemy.orm as _orm
-import celery.utils.log as _logging
 
 import taskmanager.models as _models
 
@@ -238,6 +239,7 @@ def _wrap_func(func):
         # get params
         # load the data
         # need request
+        json_api = _os.environ.get('JSONAPI')
         resource = func.__resource__
         req = self.request
         kwargs.update(req.matchdict)
@@ -265,22 +267,25 @@ def _wrap_func(func):
             _log.debug(dict(req.params))
             data = func(self, *args, **kwargs)
         except RestAPIException as ex:
-            return {
-                "result": ex.error_type,
-                "error": ex.message,
-                "data": None,
-            }
+            raise _httpexceptions.HTTPNotFound(
+                ex.message
+            )
+
         if data is None:
-            return {
-                "result": RESULT_NOTFOUND,
-                "error": "Couldn't find object",
-                "data": None,
-            }
+            raise _httpexceptions.HTTPNotFound(
+                "Couldn't find object"
+            )
         with_links = resource.get('with_links')
-        result = {
-            "result": RESULT_OK,
-        }
+        result = {}
+
         if with_links:
+            if 'meta' not in data:
+                _log.error(
+                    f"{func.__name__} is configured with with_links, but no meta in data"
+                )
+                raise _httpexceptions.HTTPInternalServerError(
+                    'Oooops, there is something wrong...'
+                )
             meta = data['meta']
             data = data['data']
             result["meta"] = {"count": meta["max_elements"]}
@@ -292,12 +297,15 @@ def _wrap_func(func):
         attr = {'many': False}
         if isinstance(data, _collection.Iterable):
             attr['many'] = True
-        if include_data:
+
+        if include_data and json_api:
             attr['include_data'] = resource.get('include')
+            result['json_api'] = True
 
         if output_schema:
             data = output_schema(**attr).dump(data)
-            # from ipdb import set_trace as br; br()
+        if not 'data' in data:
+            data = {'data': data}
         result.update(data)
         return result
 
