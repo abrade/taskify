@@ -1,55 +1,76 @@
-version: '2'
+version: '3'
 services:
+    db:
+        image: postgres:11.2
+        volumes:
+          - "/usr/local/var/postgres:/var/lib/postgresql/data"
+        ports:
+          - "5432:5432"
+        expose:
+          - 5432
     rabbit:
         hostname: rabbit
         image: rabbitmq:latest
         environment:
-            - RABBITMQ_DEFAULT_USER=tm
-            - RABBITMQ_DEFAULT_PASS=tasky
+          - RABBITMQ_DEFAULT_USER=tm
+          - RABBITMQ_DEFAULT_PASS=tasky
         ports:
-            - "5672:5672"
-
+          - "5672:5672"
+        expose:
+          - 5672
     worker-default:
-        build:
-            context: .
-            dockerfile: default-worker
-            args:
-              - QUEUE=default
-              - CONCURRENT=10
-        hostname: default-worker
-        volumes:
-            - .:/app
-        links:
-            - rabbit
-        depends_on:
-            - rabbit
+      image: taskmanager:latest
+      entrypoint:
+        - celery
+        - -A
+        - taskmanager.views
+        - worker
+        - --concurrency=20
+        - --loglevel=info
+      environment:
+        - QUEUE=default
+        - CONCURRENT=10
+      hostname: default-worker
+      volumes:
+        - .:/app
+      depends_on:
+        - rabbit
     worker-1:
-        build:
-            context: .
-            dockerfile: default-worker
-            args:
-              - QUEUE=worker1
-              - CONCURRENT=10
-        hostname: worker1
-        volumes:
-            - .:/app
-        links:
-            - rabbit
-        depends_on:
-            - rabbit
+      image: taskmanager:latest
+      entrypoint:
+        - celery
+        - -A
+        - taskmanager.views
+        - worker
+        - --concurrency=20
+        - --loglevel=info
+      environment:
+        - QUEUE=worker1
+        - CONCURRENT=10
+      hostname: worker1
+      volumes:
+        - .:/app
+      depends_on:
+        - rabbit
     scheduler:
-      build:
-        context: .
-        dockerfile: scheduler
+      image: taskmanager:latest
+      entrypoint:
+        - task_scheduler
+        - development.ini
       hostname: task-scheduler
-      network_mode: "host"
+      depends_on:
+        - db
+        - rabbit
       volumes:
         - /app
     state-updater:
-      build:
-        context: .
-        dockerfile: state_updater
+      image: taskmanager:latest
+      entrypoint:
+        - state_updater
+        - development.ini
       hostname: state-updater
-      network_mode: "host"
+      depends_on:
+        - db
+        - rabbit
       volumes:
         - /app        
